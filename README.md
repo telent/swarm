@@ -3,6 +3,11 @@
 a.k.a Service Watcher and Autonomous Restart Monitor
 (acronym subhject to change)
 
+## To build
+
+    nix-build --arg stdenv '(import <nixpkgs> {}).stdenv' .
+
+
 ## Motivation
 
 * We get data from our ISP via DHCP6 and router advertisements, which
@@ -28,33 +33,33 @@ a.k.a Service Watcher and Autonomous Restart Monitor
 
 Every service in NixWRT represents its state to other services in a
 directory /run/services/servicename. Within this directory we expect to
-find (up to) two files with standardized names, plus a subdirectory named
-'state' with whatever other values it may want to make available
+find (up to) two files with standardized UPPERCASE names, plus a
+an arbitrary number of other files with lowercase names containing
+whatever other state it may want to make available
 
-/run/services/servicename/healthy
- - exists iff the service is healthy
-/run/services/servicename/status
+/run/services/servicename/HEALTHY: 35235.123
+ - exists if the service is healthy. Contains monotonic timestamp of
+   most recent health check (as provided by clock_gettime with CLOCK_MONOTONIC)
+/run/services/servicename/STATUS
  - one-word description of the current service status (which is
    arbitrary, but could be something like "online", "starting",
    "shutting-down", "no-carrier" ...)
-/run/services/servicename/state/
- - a directory containing any state the service wants to export. e.g.
-/run/services/odhcp6c/state/l2tp_aaisp/ra_prefixes/1
-                                                 .../prefix: 2001:8b0:de3a:40dc::
-                                                 .../length: 64
-                                                 .../valid: 7200
-                                                 .../preferred: 7200
-/run/services/odhcp6c/state/l2tp_aaisp/rdnss/1
+/run/services/odhcp6c/l2tp_aaisp/ra_prefixes/1
+                                           .../prefix: 2001:8b0:de3a:40dc::
+                                           .../length: 64
+                                           .../valid: 7200
+                                           .../preferred: 7200
+/run/services/odhcp6c/l2tp_aaisp/rdnss/1
 2001:8b0::2020
-/run/services/odhcp6c/state/l2tp_aaisp/rdnss/2
+/run/services/odhcp6c/l2tp_aaisp/rdnss/2
 2001:8b0::2021
-/run/services/eth0.1/state/carrier
+/run/services/eth0.1/carrier
 no
-/run/services/eth0.1/state/promisc
+/run/services/eth0.1/promiscuous
 no
-/run/services/eth0.1/state/packets/rx
+/run/services/eth0.1/packets/rx
 17489375
-/run/services/eth0.1/state/packets/tx
+/run/services/eth0.1/packets/tx
 8201817
 
 This data is maintained by a small lua script which is responsible for
