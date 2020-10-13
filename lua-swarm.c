@@ -1,8 +1,129 @@
+#include <errno.h>
+#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-#include <lauxlib.h>
-#include <stdlib.h>
+#include <poll.h>
+#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/inotify.h>
+#include <sys/signalfd.h>
+#include <unistd.h>
+
+static int l_return_or_error(lua_State *L, int value) {
+  if(value >= 0) {
+    lua_pushinteger(L, value);
+    return 1;
+  }
+  else {
+    lua_pushnil(L);
+    lua_pushinteger(L, errno);
+    return 2;
+  }
+}
+
+static int l_inotify_init(lua_State *L) {
+  int fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+  return l_return_or_error(L, fd);
+}
+
+static int l_inotify_add_watch(lua_State *L) {
+  int watch_d;
+  int fd = lua_tonumber(L, -2);
+  const char* name  = lua_tostring(L, -1);
+  watch_d = inotify_add_watch(fd, name,
+			      IN_CLOSE_WRITE |
+			      IN_DELETE |
+			      IN_DELETE_SELF |
+			      IN_MOVED_TO);
+  return l_return_or_error(L, watch_d);
+}
+
+static int l_sigchld_fd(lua_State *L) {
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGCHLD);
+  sigprocmask(SIG_BLOCK, &mask, NULL);
+  int fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+  return l_return_or_error(L, fd);
+}
+
+static int l_push_siginfo(lua_State *L, struct signalfd_siginfo *si) {
+  lua_createtable(L, 0, 5);
+
+  lua_pushstring(L, "code");
+  lua_pushinteger(L, si->ssi_code);
+  lua_settable(L, -3);
+
+  lua_pushstring(L, "pid");
+  lua_pushinteger(L, si->ssi_pid);
+  lua_settable(L, -3);
+
+  lua_pushstring(L, "utime");
+  lua_pushnumber(L, ((double) si->ssi_utime) / sysconf(_SC_CLK_TCK)  );
+  lua_settable(L, -3);
+
+  lua_pushstring(L, "stime");
+  lua_pushnumber(L, ((double) si->ssi_stime) / sysconf(_SC_CLK_TCK)  );
+  lua_settable(L, -3);
+
+  lua_pushstring(L, "status");
+  lua_pushinteger(L, si->ssi_status);
+  lua_settable(L, -3);
+
+  return 1;
+}
+
+static int l_sleep(lua_State *L) {
+  sleep(lua_tonumber(L, -1));
+  return 0;
+}
+
+static int l_fork(lua_State *L) {
+  pid_t child = fork();
+  lua_pushinteger(L, child);
+  return 1;
+}
+
+static int l_next_event(lua_State *L) {
+  struct pollfd pollfd[2];
+  struct signalfd_siginfo si;
+
+  /* receives a sigchld fd and an inotify fd. */
+  int inotify_fd = lua_tonumber(L, -2);
+  int sigchld_fd = lua_tonumber(L, -3);
+  int timeout_msec = lua_tonumber(L, -1);
+
+  pollfd[0].fd = sigchld_fd;
+  pollfd[0].events = POLLIN|POLLPRI;
+  pollfd[1].fd = inotify_fd;
+  pollfd[1].events = POLLIN|POLLPRI;
+  int nfds = poll(pollfd, 2, timeout_msec);
+
+  if(pollfd[0].revents) {
+    if(read(pollfd[0].fd, &si, sizeof(struct signalfd_siginfo))) {
+      lua_pushstring(L, "child");
+      return 1 + l_push_siginfo(L, &si);
+    }
+    return 0;
+  } else if (pollfd[1].revents) {
+    struct inotify_event ino_events[6];
+    int num;
+    if(num = read(pollfd[1].fd, ino_events, sizeof ino_events)) {
+      lua_pushstring(L, "file");
+      lua_newtable(L);
+      for(int i=0; i < num/sizeof( struct inotify_event); i++) {
+	lua_pushinteger(L, ino_events[i].wd);
+	lua_pushinteger(L, ino_events[i].wd);
+	lua_settable(L, -3);
+      }
+      return 2;
+    }
+    return 0;
+  } else {
+    return 0;			/* no return for timeout */
+  }
+}
 
 
 int
@@ -59,6 +180,12 @@ main(int argc, char *argv[])
 
     /* By what name is the script going to reference our table? */
     lua_setglobal(L, "foo");
+    lua_register(L, "inotify_init", l_inotify_init);
+    lua_register(L, "inotify_add_watch", l_inotify_add_watch);
+    lua_register(L, "sigchld_fd", l_sigchld_fd);
+    lua_register(L, "next_event", l_next_event);
+    lua_register(L, "fork", l_fork);
+    lua_register(L, "sleep", l_sleep);
 
     /* Ask Lua to run our little script */
     result = lua_pcall(L, 0, LUA_MULTRET, 0);
