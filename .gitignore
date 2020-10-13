@@ -1,5 +1,5 @@
 *~
 inspect.lua
 json.lua
-swarm
+lua-swarm
 *.o
