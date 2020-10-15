@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <dirent.h>
 
@@ -33,6 +35,20 @@ static int l_return_or_error(lua_State *L, int value) {
     return 1;
   }
   else {
+    lua_pushnil(L);
+    lua_pushinteger(L, errno);
+    return 2;
+  }
+}
+
+static int l_isdir (lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  struct stat s;
+  int ret = stat(path, &s);
+  if(ret == 0) {
+    lua_pushboolean(L, (s.st_mode & S_IFMT) == S_IFDIR);
+    return 1;
+  } else {
     lua_pushnil(L);
     lua_pushinteger(L, errno);
     return 2;
@@ -211,6 +227,7 @@ main(int argc, char *argv[])
     lua_register(L, "fork", l_fork);
     lua_register(L, "inotify_add_watch", l_inotify_add_watch);
     lua_register(L, "inotify_init", l_inotify_init);
+    lua_register(L, "isdir", l_isdir);
     lua_register(L, "next_event", l_next_event);
     lua_register(L, "sigchld_fd", l_sigchld_fd);
     lua_register(L, "sleep", l_sleep);
