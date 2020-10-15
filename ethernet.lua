@@ -1,13 +1,8 @@
 #!/usr/bin/env lua
-swarm = require("swarm")
-f = require("prelude")
-
-iface = "wlp4s0" -- "enp0s31f6"
-
-local inspect = require("inspect")
+local f = require("prelude")
+local swarm = require("swarm")
 local json = require("json")
-
-inputs = swarm.subscribe({"dhcp6c/address", "dhcp6c/routes"})
+local inspect = require("inspect")
 
 function get_state(ifname)
    linkstate = json.decode(swarm.capture("ip -j link show %s", ifname))[1]
@@ -23,16 +18,20 @@ function get_state(ifname)
       state = linkstate["operstate"],
       carrier = carrier
    }
---!linkstate["flags"].include?("NO-CARRIER"))
 end
 
-for event in inputs:wait() do
-   print(inspect(event.source))
-  if event.source == "dhcpc/address" then
-     swarm.exec("ip address set %s netmask %s", event.address, event.netmask)
-  elseif false then
-     print("nothings")
---    ...
-  end
-  swarm.write_state(get_state(iface))
+
+ifname = "wlp4s0" -- "enp0s31f6"
+w = swarm.watcher()
+w:subscribe("dhcp6c", {"address", "routes"})
+
+print(inspect(swarm))
+local previous = {}
+for event in w:events() do
+   print(inspect(event))
+   local inputs = swarm.read_tree("/tmp/services", "dhcp6c")
+   if swarm.changed(inputs, previous, {"address", "netmask"}) then
+      swarm.exec("ip address set %s netmask %s", event.address, event.netmask)
+   end
+   swarm.write_state(get_state(ifname))
 end

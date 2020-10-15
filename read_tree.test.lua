@@ -1,4 +1,4 @@
-local read_tree = require("read_tree")
+local read_tree = require("swarm").read_tree
 local inspect = require("inspect")
 
 -- it reads a folder of flat files
