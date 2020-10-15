@@ -39,6 +39,36 @@ static int l_return_or_error(lua_State *L, int value) {
   }
 }
 
+/* this is a direct paste from http://www.lua.org/pil/26.1.html */
+
+static int l_dir (lua_State *L) {
+  DIR *dir;
+  struct dirent *entry;
+  int i;
+  const char *path = luaL_checkstring(L, 1);
+
+  /* open directory */
+  dir = opendir(path);
+  if (dir == NULL) {  /* error opening the directory? */
+    lua_pushnil(L);
+    lua_pushinteger(L, errno);
+    return 2;  /* number of results */
+  }
+
+  /* create result table */
+  lua_newtable(L);
+  i = 1;
+  while ((entry = readdir(dir)) != NULL) {
+    lua_pushnumber(L, i++);  /* push key */
+    lua_pushstring(L, entry->d_name);  /* push value */
+    lua_settable(L, -3);
+  }
+
+  closedir(dir);
+  return 1;  /* table is already on top */
+}
+
+
 static int l_inotify_init(lua_State *L) {
   int fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
   return l_return_or_error(L, fd);
@@ -173,6 +203,7 @@ main(int argc, char *argv[])
     lua_register(L, "sigchld_fd", l_sigchld_fd);
     lua_register(L, "next_event", l_next_event);
     lua_register(L, "fork", l_fork);
+    lua_register(L, "dir", l_dir);
     lua_register(L, "sleep", l_sleep);
 
     /* Ask Lua to run our little script */
