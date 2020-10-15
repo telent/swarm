@@ -9,6 +9,23 @@
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
 #include <unistd.h>
+#include <dirent.h>
+
+#define ERRC(c) lua_pushinteger(L, c);  lua_pushstring(L, #c);  lua_rawset(L, -3)
+static void l_errno_table(lua_State *L) {
+  lua_newtable(L);
+  ERRC(EACCES);
+  ERRC(EEXIST);
+  ERRC(EFAULT);
+  ERRC(EINTR);
+  ERRC(EINVAL);
+  ERRC(ENOENT);
+  ERRC(ENOSPC);
+  ERRC(ENOTDIR);
+  lua_setglobal(L, "errno");
+}
+#undef ERRC
+
 
 static int l_return_or_error(lua_State *L, int value) {
   if(value >= 0) {
@@ -141,6 +158,7 @@ main(int argc, char *argv[])
 
     luaL_openlibs(L); /* Load Lua libraries */
 
+    l_errno_table(L);
     /* Load the file containing the script we are going to run */
     status = luaL_loadfile(L, argv[1]);
     if (status) {
