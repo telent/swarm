@@ -96,7 +96,11 @@ static int l_sigchld_fd(lua_State *L) {
 }
 
 static int l_push_siginfo(lua_State *L, struct signalfd_siginfo *si) {
-  lua_createtable(L, 0, 5);
+  lua_createtable(L, 0, 6);
+
+  lua_pushstring(L, "type");
+  lua_pushstring(L, "child");
+  lua_settable(L, -3);
 
   lua_pushstring(L, "code");
   lua_pushinteger(L, si->ssi_code);
@@ -132,6 +136,7 @@ static int l_fork(lua_State *L) {
   return 1;
 }
 
+
 static int l_next_event(lua_State *L) {
   struct pollfd pollfd[2];
   struct signalfd_siginfo si;
@@ -149,22 +154,26 @@ static int l_next_event(lua_State *L) {
 
   if(pollfd[0].revents) {
     if(read(pollfd[0].fd, &si, sizeof(struct signalfd_siginfo))) {
-      lua_pushstring(L, "child");
-      return 1 + l_push_siginfo(L, &si);
+      return l_push_siginfo(L, &si);
     }
     return 0;
   } else if (pollfd[1].revents) {
     struct inotify_event ino_events[6];
     int num;
-    if(num = read(pollfd[1].fd, ino_events, sizeof ino_events)) {
+    if((num = read(pollfd[1].fd, ino_events, sizeof ino_events)) >0) {
+      lua_createtable(L, 0, 2);
+      lua_pushstring(L, "type");
       lua_pushstring(L, "file");
+      lua_settable(L, -3);
+      lua_pushstring(L, "watches");
       lua_newtable(L);
       for(int i=0; i < num/sizeof( struct inotify_event); i++) {
 	lua_pushinteger(L, ino_events[i].wd);
 	lua_pushinteger(L, ino_events[i].wd);
 	lua_settable(L, -3);
       }
-      return 2;
+      lua_settable(L, -3);
+      return 1;
     }
     return 0;
   } else {
