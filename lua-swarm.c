@@ -207,12 +207,12 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    lua_register(L, "inotify_init", l_inotify_init);
-    lua_register(L, "inotify_add_watch", l_inotify_add_watch);
-    lua_register(L, "sigchld_fd", l_sigchld_fd);
-    lua_register(L, "next_event", l_next_event);
-    lua_register(L, "fork", l_fork);
     lua_register(L, "dir", l_dir);
+    lua_register(L, "fork", l_fork);
+    lua_register(L, "inotify_add_watch", l_inotify_add_watch);
+    lua_register(L, "inotify_init", l_inotify_init);
+    lua_register(L, "next_event", l_next_event);
+    lua_register(L, "sigchld_fd", l_sigchld_fd);
     lua_register(L, "sleep", l_sleep);
 
     /* Ask Lua to run our little script */
