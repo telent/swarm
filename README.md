@@ -3,6 +3,10 @@
 a.k.a Service Watcher and Autonomous Restart Monitor
 (acronym subject to change)
 
+[ This README is aspirational not definitional.  It describes the
+  future that (we think) we'd like, not the present that we have ]
+
+
 ## To build
 
     nix-build --arg stdenv '(import <nixpkgs> {}).stdenv' .
@@ -64,17 +68,18 @@ no
 8201817
 ```
 
-For each service, this data is maintained by a small lua script which
+For each service, this data is maintained by a small Lua script which
 is responsible for starting/monitoring/restarting/repairing the
 underlying process/interface/device/thing that provides the associated
 service. Where the service is dependent on other services, it receives
 updates from them by using inotify file watches on their service
 runtime directories.  It can use these notifications to rewrite
-configuration files, restart/reload daemons, etc,
+configuration files, restart/reload daemons, run commands, etc.
+
 
 ### Repair
 
-The lua script is expected/recommended to check periodically on the
+The Lua script is expected/recommended to check periodically on the
 thing it's managing, and stage an intervention in any condition where
 (1) the service is not healthy; and (2) there is an appropriate
 intervention to be made.  For example
