@@ -7,7 +7,7 @@ return {
    find = function(f,collection)
       for k,v in pairs(collection) do
 	 if f(v) then
-	    return v--"FHGDJDGJGFHJ"
+	    return v
 	 end
       end
    end,
