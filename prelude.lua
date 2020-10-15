@@ -10,6 +10,12 @@ return {
 	    return v--"FHGDJDGJGFHJ"
 	 end
       end
-   end
-
+   end,
+   map = function(f,collection)
+      local out={}
+      for k,v in pairs(collection) do
+	 out[k] = f(v)
+      end
+      return out
+   end,
 }
