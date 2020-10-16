@@ -1,6 +1,8 @@
 local inspect = require("inspect")
 local f = require("prelude")
 
+SERVICES_BASE_PATH = "/tmp/services"
+
 function slurp(name)
    local f = io.open(name, "r")
    local contents = f:read("*all")
@@ -16,20 +18,23 @@ function path_append(base, branch)
    end
 end
 
-function read_tree(base_directory, tree)
+function read_tree(tree, base_path)
+   base_path = base_path or SERVICES_BASE_PATH
    local out={}
-   local absolute_tree = path_append(base_directory, tree)
-   for _,name in ipairs(dir(absolute_tree)) do
-      local relname = path_append(tree, name)
-      local absname = path_append(absolute_tree, name)
-      if name == "." or name == ".." then
-	 -- skip
-      elseif isdir(absname) then
-	 out[name] = read_tree(absolute_tree, name)
-      else
-	 out[name] = slurp(absname)
+   function read_tree_aux(prefix, absolute_tree)
+      for _,name in ipairs(dir(absolute_tree)) do
+	 local relname = prefix .. name
+	 local absname = path_append(absolute_tree, name)
+	 if name == "." or name == ".." then
+	    -- skip
+	 elseif isdir(absname) then
+	    read_tree_aux(relname .. "/", absname)
+	 else
+	    out[relname] = slurp(absname)
+	 end
       end
    end
+   read_tree_aux("", path_append(base_path, tree))
    return out
 end
 
@@ -42,11 +47,9 @@ function or_fail(value, failed)
 end
 
 function dirname(pathname)
-   print(pathname)
    return pathname:match("(.*/)")
 end
 
-SERVICES_BASE_PATH = "/tmp/services"
 
 function new_watcher()
    return {
@@ -99,7 +102,6 @@ end
 
 return {
    watcher = new_watcher,
-   read_tree = read_tree,
    changed = changed,
    write_state = function(state)
       print(inspect(state))
@@ -110,5 +112,9 @@ return {
    capture = function(format_string, ...)
       local command = string.format(format_string, ...)
       return io.popen(command):read("*all")
-   end
+   end,
+
+   -- exported for testing
+   read_tree = read_tree
+
 }
