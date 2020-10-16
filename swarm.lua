@@ -51,26 +51,46 @@ function dirname(pathname)
 end
 
 
+function changed(event, service, paths)
+   if event.type == "file" then
+      if event.changes and event.changes[service] then
+	 local newer = event.changes[service].after
+	 local older = event.changes[service].before
+	 for _,path in ipairs(paths) do
+	    if not older then
+	       return true
+	    end
+	    if not (newer[path] == older[path]) then
+	       return true
+	    end
+	 end
+      end
+   end
+   return false
+end
+
 function new_watcher()
    return {
       child_fd = or_fail(sigchld_fd()),
       inotify_fd = or_fail(inotify_init()),
       watches = {},
+      services = {},
       subscribe = function(me, service, files)
 	 base_path = path_append(SERVICES_BASE_PATH, service)
+	 me.services[service] = read_tree(service)
 	 for _,file in ipairs(files) do
-	    me:watch_file(path_append(base_path, file))
+	    me:watch_file(service, path_append(base_path, file))
 	 end
       end,
-      watch_file = function(me, file)
+      watch_file = function(me, service, file)
 	 wd, err = inotify_add_watch(me.inotify_fd, file)
 	 if wd then
-	    me.watches[wd] = file
+	    me.watches[wd] = { service = service, file = file };
 	 elseif errno[err] == "ENOENT" then
 	    -- XXX if we get a 'file created' event from the directory watch
 	    -- here, we need to add a watch for the file as well
 	    print(file .. " does not exist")
-	    me:watch_file(dirname(file))
+	    me:watch_file(service, dirname(file))
 	 else
 	    error("watch_file: " .. err .. ", " .. (errno[err] or "(unknown)"))
 	 end
@@ -78,31 +98,33 @@ function new_watcher()
       events = function(me, timeout_ms)
 	 return function()
 	    local e = next_event(me.child_fd, me.inotify_fd, timeout_ms)
-	    if e and e.type == "file" then
-	       e.files = f.map(function(wd) return me.watches[wd] end,
-		  e.watches)
+	    if not e then return nil end
+	    if e.type == "file" then
+	       local changes = {}
+	       local values = {}
+	       for _,wd in pairs(e.watches) do
+		  local service_name = me.watches[wd].service
+		  if not changes[service_name] then
+		     values[service_name] = read_tree(service_name)
+		     changes[service_name] = {
+			before = me.services[service_name],
+			after = values[service_name]
+		     }
+		     me.services[service_name] = values[service_name]
+		  end
+	       end
+	       e.changes =  changes
+	       e.values = values
 	    end
+	    e.changed = changed
 	    return e
 	 end
       end
    }
 end
 
--- this does not work recursively, it would be rather good if it did.
--- also, perhaps it should warn if you're trying to look for changes on
--- a path you're not subscribed to?
-function changed(newer, older, paths)
-   for _,path in ipairs(paths) do
-      if not (newer[path] == older[path]) then
-	 return true
-      end
-   end
-   return false
-end
-
 return {
    watcher = new_watcher,
-   changed = changed,
    write_state = function(state)
       print(inspect(state))
    end,
