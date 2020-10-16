@@ -64,15 +64,17 @@ function new_watcher()
 	 if wd then
 	    me.watches[wd] = file
 	 elseif errno[err] == "ENOENT" then
+	    -- XXX if we get a 'file created' event from the directory watch
+	    -- here, we need to add a watch for the file as well
 	    print(file .. " does not exist")
 	    me:watch_file(dirname(file))
 	 else
 	    error("watch_file: " .. err .. ", " .. (errno[err] or "(unknown)"))
 	 end
       end,
-      events = function(me)
+      events = function(me, timeout_ms)
 	 return function()
-	    local e = next_event(me.child_fd, me.inotify_fd, 10000)
+	    local e = next_event(me.child_fd, me.inotify_fd, timeout_ms)
 	    if e and e.type == "file" then
 	       e.files = f.map(function(wd) return me.watches[wd] end,
 		  e.watches)
@@ -83,7 +85,9 @@ function new_watcher()
    }
 end
 
--- this does not work recursively, it would be rather good if it did
+-- this does not work recursively, it would be rather good if it did.
+-- also, perhaps it should warn if you're trying to look for changes on
+-- a path you're not subscribed to?
 function changed(newer, older, paths)
    for _,path in ipairs(paths) do
       if not (newer[path] == older[path]) then

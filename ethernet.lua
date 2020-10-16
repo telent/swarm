@@ -23,15 +23,26 @@ end
 
 ifname = "wlp4s0" -- "enp0s31f6"
 w = swarm.watcher()
-w:subscribe("dhcp6c", {"address", "routes"})
+w:subscribe("dhcp6c", {"address", "routes", "netmask"})
 
-print(inspect(swarm))
-local previous = {}
-for event in w:events() do
-   print(inspect(event))
-   local inputs = swarm.read_tree("/tmp/services", "dhcp6c")
-   if swarm.changed(inputs, previous, {"address", "netmask"}) then
-      swarm.exec("ip address set %s netmask %s", event.address, event.netmask)
+local previous = swarm.read_tree("/tmp/services", "dhcp6c")
+while true do
+   for event in w:events(4*1000) do -- argument to events is the poll time (ms)
+      print(inspect(event))
+      -- maybe the framework could do some of this tracking for us
+      -- instead of our having to remember what the previous value was
+      local inputs = swarm.read_tree("/tmp/services", "dhcp6c")
+      if swarm.changed(inputs, previous, {"address", "netmask"}) then
+	 swarm.exec("ip address set %s netmask %s", event.address, event.netmask)
+	 previous = inputs
+	 break
+      end
+      if swarm.changed(inputs, previous, {"routes"}) then
+	 swarm.exec("ip route something blahk %s", event.routes)
+	 previous = inputs
+	 break
+      end
+--      print("previously, ", inspect(previous))
    end
    swarm.write_state(get_state(ifname))
 end
