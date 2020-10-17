@@ -125,8 +125,11 @@ end
 
 return {
    watcher = new_watcher,
-   write_state = function(state)
-      print(inspect(state))
+   write_state = function(service_name, state)
+      -- this is a stub, it should be writing into a run/servicename folder
+      local msg = {}
+      msg[service_name] = state
+      print(inspect(msg))
    end,
    exec = function(format_string, ...)
       print("EXEC: ".. string.format(format_string, ...))

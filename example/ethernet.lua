@@ -21,7 +21,10 @@ function get_state(ifname)
 end
 
 
-ifname = "wlp4s0" -- "enp0s31f6"
+service_name = arg[1]
+ifname = arg[2]
+print("service " .. service_name , "if " .. ifname)
+
 w = swarm.watcher()
 w:subscribe("dhcp6c", {"address", "routes", "netmask"})
 
@@ -38,5 +41,5 @@ while true do
 	 break
       end
    end
-   swarm.write_state(get_state(ifname))
+   swarm.write_state(service_name, get_state(ifname))
 end

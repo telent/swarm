@@ -214,7 +214,6 @@ main(int argc, char *argv[])
     luaL_openlibs(L); /* Load Lua libraries */
 
     l_errno_table(L);
-
     /* Load the file containing the script we are going to run */
     status = luaL_loadfile(L, argv[1]);
     if (status) {
@@ -225,8 +224,8 @@ main(int argc, char *argv[])
     }
 
     lua_newtable(L);
-    for(int i=1; i<argv; i++) {
-      lua_pushinteger(L, i);
+    for(int i=1; i < argc; i++) {
+      lua_pushinteger(L, i-1);
       lua_pushstring(L, argv[i]);
       lua_rawset(L, -3);
     }

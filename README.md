@@ -11,6 +11,18 @@ a.k.a Service Watcher and Autonomous Restart Monitor
 
     nix-build --arg stdenv '(import <nixpkgs> {}).stdenv' .
 
+## To run the example service swarm
+
+Note for the non-Nixpkgs-fluent: *obviously*[*] if you installed it properly it would
+not be this tediously verbose: this is just my command line for running
+the uninstalled build directly to see what happens.
+
+    (cd example/ && env LUA_PATH=../result/lib/?.lua PATH=../result/bin:$PATH nix run nixpkgs.foreman  -c foreman start)
+
+Note for the Nixpkgs-fluent: I haven't decided what "properly" means yet.
+
+[*] ha!
+
 
 ## Motivation
 
@@ -39,10 +51,13 @@ Every service in NixWRT represents its state to other services in a
 directory /run/services/servicename. Within this directory we expect
 to find (up to) two files with standardized UPPERCASE names, plus a an
 arbitrary number of other files (and directories) with lowercase names
-containing whatever other state it may want to make available
+containing whatever other state it may want to make available.  This
+might be something like
+
 
 ```
-/run/services/servicename/HEALTHY: 35235.123
+/run/services/servicename/HEALTHY:
+35235.123
  - exists if the service is healthy. Contains monotonic timestamp of
    most recent health check (as provided by clock_gettime with CLOCK_MONOTONIC)
 /run/services/servicename/STATUS
@@ -68,9 +83,10 @@ no
 8201817
 ```
 
-For each service, this data is maintained by a small Lua script which
+For each service, this data is maintained by a small Lua script
+(see e.g. [ethernet.lua](example/ethernet.lua)) which
 is responsible for starting/monitoring/restarting/repairing the
-underlying process/interface/device/thing that provides the associated
+underlying process/interface/device/other thing that provides the associated
 service. Where the service is dependent on other services, it receives
 updates from them by using inotify file watches on their service
 runtime directories.  It can use these notifications to rewrite
@@ -101,4 +117,3 @@ attempted
 Probably it would be good to have a medical history so we don't get
 trapped in an infinite loop of trying the same thing over and over and
 it continuing to not work.
-

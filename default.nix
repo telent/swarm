@@ -37,10 +37,17 @@ in stdenv.mkDerivation {
   name = "swarm";
   src = ./.;
   buildInputs = [lua.out lua.dev];
+  makeFlags = ["-C src"];
   postPatch = ''
-    test -L ./inspect.lua || ln -s ${inspect_lua} ./inspect.lua
-    test -L ./json.lua || ln -s ${json_lua} ./json.lua
+    echo Woo
+    test -L ./lib/inspect.lua || ln -s ${inspect_lua} ./lib/inspect.lua
+    test -L ./lib/json.lua || ln -s ${json_lua} ./lib/json.lua
   '';
 
   installFlags = ["DESTDIR=$(out)"];
+  installPhase = ''
+    installPhase
+    mkdir -p $out/lib
+    cp -r lib/* $out/lib
+  '';
 }
