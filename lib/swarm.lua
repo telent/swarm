@@ -1,7 +1,7 @@
 local inspect = require("inspect")
 local f = require("prelude")
 
-SERVICES_BASE_PATH = "/tmp/services"
+SERVICES_BASE_PATH = os.getenv("SWARM_BASE_PATH") or "/run/swarm/services"
 
 function slurp(name)
    local f = io.open(name, "r")
@@ -140,6 +140,7 @@ return {
    end,
 
    -- exported for testing
-   read_tree = read_tree
-
+   read_tree = read_tree,
+   path_append = path_append,
+   SERVICES_BASE_PATH = SERVICES_BASE_PATH
 }

@@ -7,23 +7,6 @@ a.k.a Service Watcher and Autonomous Restart Monitor
   future that (we think) we'd like, not the present that we have ]
 
 
-## To build
-
-    nix-build --arg stdenv '(import <nixpkgs> {}).stdenv' .
-
-## To run the example service swarm
-
-Note for the non-Nixpkgs-fluent: *obviously*[*] if you installed it properly it would
-not be this tediously verbose: this is just my command line for running
-the uninstalled build directly to see what happens.
-
-    (cd example/ && env LUA_PATH=../result/lib/?.lua PATH=../result/bin:$PATH nix run nixpkgs.foreman  -c foreman start)
-
-Note for the Nixpkgs-fluent: I haven't decided what "properly" means yet.
-
-[*] ha!
-
-
 ## Motivation
 
 * We want to start and monitor services (daemons etc) in NixWRT and
@@ -106,6 +89,26 @@ updates from them by using inotify file watches on _their_ service
 runtime directories.  It can use these notifications to rewrite
 configuration files, restart/reload daemons, run commands, etc.
 
+
+## To build
+
+    nix-build --arg stdenv '(import <nixpkgs> {}).stdenv' .
+
+## To run the example service swarm
+
+    $ nix-shell
+    nix-shell$ make
+    nix-shell$ (cd example/ && env PATH=../src:$PATH foreman start)
+
+## To run tests
+
+    $ nix-shell
+    nix-shell$ make test
+
+
+----
+
+# WIP and rumination
 
 ### Repair
 

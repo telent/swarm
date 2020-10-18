@@ -37,7 +37,6 @@ in stdenv.mkDerivation {
   name = "swarm";
   src = ./.;
   buildInputs = [lua.out lua.dev];
-  makeFlags = ["-C src"];
   postPatch = ''
     echo Woo
     test -L ./lib/inspect.lua || ln -s ${inspect_lua} ./lib/inspect.lua
@@ -45,9 +44,4 @@ in stdenv.mkDerivation {
   '';
 
   installFlags = ["DESTDIR=$(out)"];
-  installPhase = ''
-    installPhase
-    mkdir -p $out/lib
-    cp -r lib/* $out/lib
-  '';
 }
