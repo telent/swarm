@@ -10,6 +10,7 @@
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <dirent.h>
 
@@ -153,6 +154,45 @@ static int l_sleep(lua_State *L) {
   return 0;
 }
 
+static int l_waitpid(lua_State *L) {
+  int pid = lua_tointeger(L, 1);
+  return l_return_or_error(L, waitpid(pid, NULL, 0));
+}
+
+void copy_to_array(lua_State *L, int index, char ** out, int len) {
+  for (int i = 1; i <= len; i++) {
+    lua_pushinteger(L, i);
+    lua_gettable(L, index);
+    out[i-1] = lua_tostring(L, -1);
+    lua_pop(L, 1);
+  }
+  out[len] = NULL;
+}
+
+static int lua_objlen(lua_State *L, int index) {
+  lua_len(L, index);
+  int len = lua_tointeger(L, -1);
+  lua_pop(L, 1);
+  return len;
+}
+
+static int l_execve(lua_State *L) {
+  /* pathname, args, env */
+  const char *pathname = luaL_checkstring(L, 1);
+
+  int nargs = lua_objlen(L, 2);
+  char ** argv = alloca((sizeof (char *)) * (1+nargs));
+  copy_to_array(L, 2, argv, nargs);
+
+  int nenvs = lua_objlen(L, 3);
+  char * * envp = alloca((sizeof (char *)) * (1+nenvs));
+  copy_to_array(L, 3, envp, nenvs);
+
+  int ret = execve(pathname, argv, envp);
+  lua_pushinteger(L, ret);
+  return 1;
+}
+
 static int l_fork(lua_State *L) {
   pid_t child = fork();
   lua_pushinteger(L, child);
@@ -239,6 +279,7 @@ main(int argc, char *argv[])
     lua_setglobal(L, "arg");
 
     lua_register(L, "dir", l_dir);
+    lua_register(L, "execve", l_execve);
     lua_register(L, "fork", l_fork);
     lua_register(L, "inotify_add_watch", l_inotify_add_watch);
     lua_register(L, "inotify_init", l_inotify_init);
@@ -247,6 +288,7 @@ main(int argc, char *argv[])
     lua_register(L, "next_event", l_next_event);
     lua_register(L, "sigchld_fd", l_sigchld_fd);
     lua_register(L, "sleep", l_sleep);
+    lua_register(L, "waitpid", l_waitpid);
 
     /* Ask Lua to run our little script */
     result = lua_pcall(L, 0, LUA_MULTRET, 0);

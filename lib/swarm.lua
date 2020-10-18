@@ -146,11 +146,53 @@ function write_state(service_name, state)
    end
 end
 
+local log = {
+   info = function(format_string, ...)
+      local line = string.format(format_string, ...)
+      print(line)
+   end,
+   debug = function(format_string, ...)
+      if os.getenv("SWARM_DEBUG") then
+	 local line = string.format(format_string, ...)
+	 print(line)
+      end
+   end,
+}
+
+function flatten_env(env_table)
+   local flat = {}
+   -- what should we do if we get non-string v?
+   for k, v in pairs(env_table) do
+      table.insert(flat, k .. "=" .. v)
+   end
+   return flat
+end
+
+function spawn(pathname, args, env)
+   local pid = fork()
+   if pid==0 then -- child
+      -- should we close filehandles here? have we left any open?
+      local flat_env = flatten_env(env) -- numeric indexes
+      or_fail(execve(pathname, args, flat_env))
+      os.exit(0)      -- this *should* be unreachable
+   end
+   log.info("running %s %s, pid %d", pathname, inspect(args), pid)
+   log.debug("environment for pid %d: %s", pid, inspect(env))
+   return or_fail(pid)
+end
+
 return {
    watcher = new_watcher,
    write_state = write_state,
-   exec = function(format_string, ...)
-      print("EXEC: ".. string.format(format_string, ...))
+   run = function(pathname, args, env)
+      env = env or ENV
+      local pid = spawn(pathname, args, env)
+      -- might be appropriate to have a timeout here
+      log.info("waiting for pid %d", pid)
+      return or_fail(waitpid(pid))
+   end,
+   run_async = function(pathname, args, env)
+      return spawn(pathname, args, env or ENV)
    end,
    capture = function(format_string, ...)
       local command = string.format(format_string, ...)
