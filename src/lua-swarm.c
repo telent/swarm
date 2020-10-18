@@ -55,6 +55,13 @@ static int l_isdir (lua_State *L) {
   }
 }
 
+static int l_mkdir (lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  struct stat s;
+  int ret = mkdir(path, S_IRWXU | S_IRWXG |S_IRWXO); /* subject to umask */
+  return l_return_or_error(L, ret);
+}
+
 /* this is a direct paste from http://www.lua.org/pil/26.1.html */
 
 static int l_dir (lua_State *L) {
@@ -231,12 +238,12 @@ main(int argc, char *argv[])
     }
     lua_setglobal(L, "arg");
 
-
     lua_register(L, "dir", l_dir);
     lua_register(L, "fork", l_fork);
     lua_register(L, "inotify_add_watch", l_inotify_add_watch);
     lua_register(L, "inotify_init", l_inotify_init);
     lua_register(L, "isdir", l_isdir);
+    lua_register(L, "mkdir", l_mkdir);
     lua_register(L, "next_event", l_next_event);
     lua_register(L, "sigchld_fd", l_sigchld_fd);
     lua_register(L, "sleep", l_sleep);
