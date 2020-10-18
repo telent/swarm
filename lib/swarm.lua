@@ -10,6 +10,13 @@ function slurp(name)
    return contents
 end
 
+function spit(name, contents)
+   local f = io.open(name, "wb")
+   f:write(contents)
+   f:close()
+end
+
+
 function path_append(base, branch)
    if base:sub(-1) == "/" then
       return base .. branch
@@ -123,14 +130,25 @@ function new_watcher()
    }
 end
 
+function write_state(service_name, state)
+   -- this needs to delete files that don't correspond to table keys,
+   -- otherwise it will leave stale data around. Also, need some way
+   -- to ensure that downstreams are not reading partly-written files
+   for key, value in pairs(state) do
+      local absdir = path_append(SERVICES_BASE_PATH, service_name)
+      if not isdir(absdir) then mkdir(absdir) end
+      local relpath = path_append(service_name, key)
+      if type(value) == 'table' then
+	 write_state(relpath, value)
+      else
+	 spit(path_append(SERVICES_BASE_PATH,relpath), value)
+      end
+   end
+end
+
 return {
    watcher = new_watcher,
-   write_state = function(service_name, state)
-      -- this is a stub, it should be writing into a run/servicename folder
-      local msg = {}
-      msg[service_name] = state
-      print(inspect(msg))
-   end,
+   write_state = write_state,
    exec = function(format_string, ...)
       print("EXEC: ".. string.format(format_string, ...))
    end,
