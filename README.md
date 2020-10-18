@@ -62,10 +62,14 @@ showtime
    arbitrary, but could be something like "online", "starting",
    "shutting-down", "no-carrier" ...)
 /run/services/odhcp6c/l2tp_aaisp/ra_prefixes/1
-                                           .../prefix: 2001:8b0:de3a:40dc::
-                                           .../length: 64
-                                           .../valid: 7200
-                                           .../preferred: 7200
+/run/services/odhcp6c/l2tp_aaisp/ra_prefixes/1/prefix
+2001:8b0:de3a:40dc::
+/run/services/odhcp6c/l2tp_aaisp/ra_prefixes/1/length
+64
+/run/services/odhcp6c/l2tp_aaisp/ra_prefixes/1/valid
+7200
+/run/services/odhcp6c/l2tp_aaisp/ra_prefixes/1/preferred
+7200
 /run/services/odhcp6c/l2tp_aaisp/rdnss/1
 2001:8b0::2020
 /run/services/odhcp6c/l2tp_aaisp/rdnss/2
