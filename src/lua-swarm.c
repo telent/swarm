@@ -159,7 +159,7 @@ static int l_waitpid(lua_State *L) {
   return l_return_or_error(L, waitpid(pid, NULL, 0));
 }
 
-void copy_to_array(lua_State *L, int index, char ** out, int len) {
+void copy_to_array(lua_State *L, int index, const char ** out, int len) {
   for (int i = 1; i <= len; i++) {
     lua_pushinteger(L, i);
     lua_gettable(L, index);
@@ -181,14 +181,17 @@ static int l_execve(lua_State *L) {
   const char *pathname = luaL_checkstring(L, 1);
 
   int nargs = lua_objlen(L, 2);
-  char ** argv = alloca((sizeof (char *)) * (1+nargs));
+  const char ** argv = alloca((sizeof (char *)) * (1+nargs));
   copy_to_array(L, 2, argv, nargs);
 
   int nenvs = lua_objlen(L, 3);
-  char * * envp = alloca((sizeof (char *)) * (1+nenvs));
+  const char ** envp = alloca((sizeof (char *)) * (1+nenvs));
   copy_to_array(L, 3, envp, nenvs);
 
-  int ret = execve(pathname, argv, envp);
+  /* according to http://stackoverflow.com/questions/190184/execv-and-const-ness
+   * the awful casting going on here is actually OK
+   */
+  int ret = execve(pathname, (char * const *) argv, (char * const *) envp);
   lua_pushinteger(L, ret);
   return 1;
 }
