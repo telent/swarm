@@ -1,4 +1,6 @@
 #include <errno.h>
+#define _GNU_SOURCE
+#include <fcntl.h>
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
@@ -29,6 +31,8 @@ static void l_errno_table(lua_State *L) {
 }
 #undef ERRC
 
+#define L_CHECK_ERROR(L, value) \
+  if(value < 0) { lua_pushnil(L); lua_pushinteger(L, errno); return 2; }
 
 static int l_return_or_error(lua_State *L, int value) {
   if(value >= 0) {
@@ -198,25 +202,78 @@ static int l_execve(lua_State *L) {
 
 static int l_fork(lua_State *L) {
   pid_t child = fork();
-  lua_pushinteger(L, child);
-  return 1;
+  return l_return_or_error(L, child);
 }
 
 
+static int l_pfork(lua_State *L) {
+  int pipeout[2], pipeerr[2];
+  L_CHECK_ERROR(L, pipe(pipeout));
+  L_CHECK_ERROR(L, pipe(pipeerr));
+  int pid=fork();
+  if(pid==0) {
+    fclose(stdout);
+    fclose(stderr);
+    close(pipeout[0]);
+    close(pipeerr[0]);
+    close(1);
+    close(2);
+    dup2(pipeout[1], 1);
+    dup2(pipeerr[1], 2);
+
+    lua_pushinteger(L, pid);
+    return 1;
+  } else if(pid > 0) {
+    close(pipeout[1]);
+    close(pipeerr[1]);
+    lua_pushinteger(L, pid);
+    lua_pushnil(L);		/* errno return */
+    lua_pushinteger(L, pipeout[0]);
+    lua_pushinteger(L, pipeerr[0]);
+    return 4;
+  }
+  else return l_return_or_error(L, pid);
+}
+
+static int countentries(lua_State *L, int index) {
+  int i;
+  lua_pushnil(L);
+  for(i=0; lua_next(L, index); i++) {
+    lua_pop(L, 1);
+  }
+  return i;
+}
+
 static int l_next_event(lua_State *L) {
-  struct pollfd pollfd[2];
   struct signalfd_siginfo si;
 
-  /* receives a sigchld fd and an inotify fd. */
-  int inotify_fd = lua_tonumber(L, -2);
-  int sigchld_fd = lua_tonumber(L, -3);
-  int timeout_msec = lua_tonumber(L, -1);
+  /* receives a sigchld fd and a inotify fd and a table whose keys are
+   * pipe fds */
+  int inotify_fd = lua_tonumber(L, 1);
+  int sigchld_fd = lua_tonumber(L, 2);
+  int nfds = countentries(L, 3);
+  int timeout_msec = lua_tonumber(L, 4);
+
+  /* stack-allocating the pollfd set seems reasonable in the
+   * usual case (maybe two or three child pipe fds to watch)
+   * but we do have an opportunity to blow the stack here if a
+   * watcher starts eleventy billion children.
+   */
+  struct pollfd *pollfd = alloca(sizeof (struct pollfd) * (2 + nfds));
 
   pollfd[0].fd = sigchld_fd;
   pollfd[0].events = POLLIN|POLLPRI;
   pollfd[1].fd = inotify_fd;
   pollfd[1].events = POLLIN|POLLPRI;
-  int nfds = poll(pollfd, 2, timeout_msec);
+
+  lua_pushnil(L);
+  for(int i=2; lua_next(L, 3); i++) {
+    pollfd[i].fd = lua_tointeger(L, -2);
+    pollfd[i].events = POLLIN|POLLPRI;
+    lua_pop(L, 1);
+  }
+
+  poll(pollfd, nfds + 2, timeout_msec);
 
   if(pollfd[0].revents) {
     if(read(pollfd[0].fd, &si, sizeof(struct signalfd_siginfo))) {
@@ -243,6 +300,32 @@ static int l_next_event(lua_State *L) {
     }
     return 0;
   } else {
+    for(int i = 0; i< nfds; i++) {
+      if(pollfd[i+2].revents) {
+	char buf[1024];
+	int fd = pollfd[i+2].fd;
+	size_t bytes_read = read(fd, buf, (sizeof buf) -1);
+	lua_createtable(L, 0, 2);
+	lua_pushstring(L, "type");
+	lua_pushstring(L, "stream");
+	lua_settable(L, -3);
+	lua_pushstring(L, "fd");
+	lua_pushinteger(L, fd);
+	lua_settable(L, -3);
+	lua_pushstring(L, "message");
+	if(bytes_read > 0)
+	  lua_pushlstring(L, buf, bytes_read);
+	else
+	  lua_pushnil(L);
+	lua_settable(L, -3);
+	if (bytes_read < 0) {
+	  lua_pushstring(L, "error");
+	  lua_pushinteger(L, errno);
+	  lua_settable(L, -3);
+	}
+	return 1;
+      }
+    }
     return 0;			/* no return for timeout */
   }
 }
@@ -289,6 +372,7 @@ main(int argc, char *argv[])
     lua_register(L, "isdir", l_isdir);
     lua_register(L, "mkdir", l_mkdir);
     lua_register(L, "next_event", l_next_event);
+    lua_register(L, "pfork", l_pfork);
     lua_register(L, "sigchld_fd", l_sigchld_fd);
     lua_register(L, "sleep", l_sleep);
     lua_register(L, "waitpid", l_waitpid);

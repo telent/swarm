@@ -111,22 +111,29 @@ function flatten_env(env_table)
    return flat
 end
 
-function spawn(pathname, args, env)
-   local pid = fork()
+function spawn(watcher, pathname, args, options)
+   local pid, failure, outfd, errfd = (options.capture and pfork or fork)()
    if pid==0 then -- child
       -- should we close filehandles here? have we left any open?
-      local flat_env = flatten_env(env) -- numeric indexes
+      local flat_env = flatten_env(options.env) -- numeric indexes
       or_fail(execve(pathname, args, flat_env))
       os.exit(0)      -- this *should* be unreachable
+   elseif pid > 0 then
+      log.info("running %s %s, pid %d", pathname, inspect(args), pid)
+      log.debug("environment for pid %d: %s", pid, inspect(options.env))
+      if options.capture then
+	 watcher:watch_fd(outfd, {pid = pid, stream = "stdout"})
+	 watcher:watch_fd(errfd, {pid = pid, stream = "stderr"})
+      end
+   else
+      log.info("fork %s %s failed: %d", pathname, inspect(args), failure)
    end
-   log.info("running %s %s, pid %d", pathname, inspect(args), pid)
-   log.debug("environment for pid %d: %s", pid, inspect(env))
-   return or_fail(pid)
+   return or_fail(pid, failure)
 end
 
 function events(me, timeout_ms)
    return function()
-      local e = next_event(me.sigchld_fd, me.inotify_fd, timeout_ms)
+      local e = next_event(me.sigchld_fd, me.inotify_fd, me.child_fds, timeout_ms)
       if not e then return nil end
       if e.type == "file" then
 	 local changes = {}
@@ -145,6 +152,9 @@ function events(me, timeout_ms)
 	 e.changed = changed
 	 e.changes =  changes
 	 e.values = values
+      elseif e.type == "stream" then
+	 source = me.child_fds[e.fd]
+	 e.source = source
       end
       return e
    end
@@ -156,6 +166,7 @@ function new_watcher()
       inotify_fd = or_fail(inotify_init()),
       watches = {},
       services = {},
+      child_fds = {},
       subscribe = function(me, service, files)
 	 base_path = path_append(SERVICES_BASE_PATH, service)
 	 me.services[service] = read_tree(service)
@@ -176,6 +187,10 @@ function new_watcher()
 	    error("watch_file: " .. err .. ", " .. (errno[err] or "(unknown)"))
 	 end
       end,
+      watch_fd = function(me, fd, source)
+	 me.child_fds[fd] = source
+      end,
+      spawn = spawn,
       events = events,
    }
 end
