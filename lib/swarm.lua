@@ -57,25 +57,21 @@ function dirname(pathname)
    return pathname:match("(.*/)")
 end
 
-
 function changed(event, service, paths)
-   if event.type == "file" then
-      if event.changes and event.changes[service] then
-	 local newer = event.changes[service].after
-	 local older = event.changes[service].before
-	 for _,path in ipairs(paths) do
-	    if not older then
-	       return true
-	    end
-	    if not (newer[path] == older[path]) then
-	       return true
-	    end
+   if event.changes and event.changes[service] then
+      local newer = event.changes[service].after
+      local older = event.changes[service].before
+      for _,path in ipairs(paths) do
+	 if not older then
+	    return true
+	 end
+	 if not (newer[path] == older[path]) then
+	    return true
 	 end
       end
    end
    return false
 end
-
 
 function write_state(service_name, state)
    -- this needs to delete files that don't correspond to table keys,
@@ -146,10 +142,10 @@ function events(me, timeout_ms)
 	       me.services[service_name] = values[service_name]
 	    end
 	 end
+	 e.changed = changed
 	 e.changes =  changes
 	 e.values = values
       end
-      e.changed = changed
       return e
    end
 end
