@@ -130,7 +130,7 @@ end
 
 function events(me, timeout_ms)
    return function()
-      local e = next_event(me.child_fd, me.inotify_fd, timeout_ms)
+      local e = next_event(me.sigchld_fd, me.inotify_fd, timeout_ms)
       if not e then return nil end
       if e.type == "file" then
 	 local changes = {}
@@ -156,7 +156,7 @@ end
 
 function new_watcher()
    return {
-      child_fd = or_fail(sigchld_fd()),
+      sigchld_fd = or_fail(sigchld_fd()),
       inotify_fd = or_fail(inotify_init()),
       watches = {},
       services = {},
