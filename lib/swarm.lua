@@ -76,6 +76,58 @@ function changed(event, service, paths)
    return false
 end
 
+
+function write_state(service_name, state)
+   -- this needs to delete files that don't correspond to table keys,
+   -- otherwise it will leave stale data around. Also, need some way
+   -- to ensure that downstreams are not reading partly-written files
+   for key, value in pairs(state) do
+      local absdir = path_append(SERVICES_BASE_PATH, service_name)
+      if not isdir(absdir) then mkdir(absdir) end
+      local relpath = path_append(service_name, key)
+      if type(value) == 'table' then
+	 write_state(relpath, value)
+      else
+	 spit(path_append(SERVICES_BASE_PATH,relpath), value)
+      end
+   end
+end
+
+local log = {
+   info = function(format_string, ...)
+      local line = string.format(format_string, ...)
+      print(line)
+   end,
+   debug = function(format_string, ...)
+      if os.getenv("SWARM_DEBUG") then
+	 local line = string.format(format_string, ...)
+	 print(line)
+      end
+   end,
+}
+
+function flatten_env(env_table)
+   local flat = {}
+   -- what should we do if we get non-string v?
+   for k, v in pairs(env_table) do
+      table.insert(flat, k .. "=" .. v)
+   end
+   return flat
+end
+
+function spawn(pathname, args, env)
+   local pid = fork()
+   if pid==0 then -- child
+      -- should we close filehandles here? have we left any open?
+      local flat_env = flatten_env(env) -- numeric indexes
+      or_fail(execve(pathname, args, flat_env))
+      os.exit(0)      -- this *should* be unreachable
+   end
+   log.info("running %s %s, pid %d", pathname, inspect(args), pid)
+   log.debug("environment for pid %d: %s", pid, inspect(env))
+   return or_fail(pid)
+end
+
 function new_watcher()
    return {
       child_fd = or_fail(sigchld_fd()),
@@ -128,57 +180,6 @@ function new_watcher()
 	 end
       end
    }
-end
-
-function write_state(service_name, state)
-   -- this needs to delete files that don't correspond to table keys,
-   -- otherwise it will leave stale data around. Also, need some way
-   -- to ensure that downstreams are not reading partly-written files
-   for key, value in pairs(state) do
-      local absdir = path_append(SERVICES_BASE_PATH, service_name)
-      if not isdir(absdir) then mkdir(absdir) end
-      local relpath = path_append(service_name, key)
-      if type(value) == 'table' then
-	 write_state(relpath, value)
-      else
-	 spit(path_append(SERVICES_BASE_PATH,relpath), value)
-      end
-   end
-end
-
-local log = {
-   info = function(format_string, ...)
-      local line = string.format(format_string, ...)
-      print(line)
-   end,
-   debug = function(format_string, ...)
-      if os.getenv("SWARM_DEBUG") then
-	 local line = string.format(format_string, ...)
-	 print(line)
-      end
-   end,
-}
-
-function flatten_env(env_table)
-   local flat = {}
-   -- what should we do if we get non-string v?
-   for k, v in pairs(env_table) do
-      table.insert(flat, k .. "=" .. v)
-   end
-   return flat
-end
-
-function spawn(pathname, args, env)
-   local pid = fork()
-   if pid==0 then -- child
-      -- should we close filehandles here? have we left any open?
-      local flat_env = flatten_env(env) -- numeric indexes
-      or_fail(execve(pathname, args, flat_env))
-      os.exit(0)      -- this *should* be unreachable
-   end
-   log.info("running %s %s, pid %d", pathname, inspect(args), pid)
-   log.debug("environment for pid %d: %s", pid, inspect(env))
-   return or_fail(pid)
 end
 
 return {
