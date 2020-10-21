@@ -128,6 +128,32 @@ function spawn(pathname, args, env)
    return or_fail(pid)
 end
 
+function events(me, timeout_ms)
+   return function()
+      local e = next_event(me.child_fd, me.inotify_fd, timeout_ms)
+      if not e then return nil end
+      if e.type == "file" then
+	 local changes = {}
+	 local values = {}
+	 for _,wd in pairs(e.watches) do
+	    local service_name = me.watches[wd].service
+	    if not changes[service_name] then
+	       values[service_name] = read_tree(service_name)
+	       changes[service_name] = {
+		  before = me.services[service_name],
+		  after = values[service_name]
+	       }
+	       me.services[service_name] = values[service_name]
+	    end
+	 end
+	 e.changes =  changes
+	 e.values = values
+      end
+      e.changed = changed
+      return e
+   end
+end
+
 function new_watcher()
    return {
       child_fd = or_fail(sigchld_fd()),
@@ -154,31 +180,7 @@ function new_watcher()
 	    error("watch_file: " .. err .. ", " .. (errno[err] or "(unknown)"))
 	 end
       end,
-      events = function(me, timeout_ms)
-	 return function()
-	    local e = next_event(me.child_fd, me.inotify_fd, timeout_ms)
-	    if not e then return nil end
-	    if e.type == "file" then
-	       local changes = {}
-	       local values = {}
-	       for _,wd in pairs(e.watches) do
-		  local service_name = me.watches[wd].service
-		  if not changes[service_name] then
-		     values[service_name] = read_tree(service_name)
-		     changes[service_name] = {
-			before = me.services[service_name],
-			after = values[service_name]
-		     }
-		     me.services[service_name] = values[service_name]
-		  end
-	       end
-	       e.changes =  changes
-	       e.values = values
-	    end
-	    e.changed = changed
-	    return e
-	 end
-      end
+      events = events,
    }
 end
 
