@@ -111,6 +111,22 @@ function flatten_env(env_table)
    return flat
 end
 
+function capture_streams_sync(fds)
+   local captured = '';
+   -- call next_event directly to avoid collecting events on other
+   -- fds as well as these ones
+   while true do
+      event = next(fds) and next_event(-1, -1, fds, 10)
+      if not event then break end
+      if event.message then
+	 captured = captured .. event.message
+      else
+	 fds[event.fd]=nil
+      end
+   end
+   return captured
+end
+
 function spawn(watcher, pathname, args, options)
    local pid, failure, outfd, errfd = (options.capture and pfork or fork)()
    if pid==0 then -- child
@@ -121,12 +137,22 @@ function spawn(watcher, pathname, args, options)
    elseif pid > 0 then
       log.info("running %s %s, pid %d", pathname, inspect(args), pid)
       log.debug("environment for pid %d: %s", pid, inspect(options.env))
-      if options.capture then
+      if options.capture and not options.wait then
 	 watcher:watch_fd(outfd, {pid = pid, stream = "stdout"})
 	 watcher:watch_fd(errfd, {pid = pid, stream = "stderr"})
       end
    else
       log.info("fork %s %s failed: %d", pathname, inspect(args), failure)
+   end
+   if options.wait then
+      local pid, failure = waitpid(pid)
+      if(options.capture) then
+	 local fds = {
+	    [outfd] = {pid = pid, stream="stdout"},
+	    [errfd] = {pid = pid, stream="stderr"}
+	 }
+	 return capture_streams_sync(fds)
+      end
    end
    return or_fail(pid, failure)
 end

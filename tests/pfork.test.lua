@@ -7,6 +7,12 @@ w = swarm.watcher({
       environ = {
 	 TERM = "dumb", PATH="/usr/bin:/run/current-system/sw/bin/"
 }})
+
+local time_now = os.time()
+actual = w:spawn("/run/current-system/sw/bin/date",
+		 {"date", "+%s"}, {wait = true, capture = true})
+assert((actual + 0) >= time_now)
+
 pid = w:spawn(
    os.getenv("PROJECT_ROOT") .. "/tests/support/child.sh",
    { "child.sh" },
