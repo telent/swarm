@@ -227,22 +227,11 @@ function new_watcher(config)
 end
 
 return {
+   -- the swarm table is getting smaller with every day.
+   -- current thinking is that we can get rid of it
+   -- completely and do everything from inside watcher
    watcher = new_watcher,
    write_state = write_state,
-   run = function(pathname, args, env)
-      env = env or ENV
-      local pid = spawn(pathname, args, env)
-      -- might be appropriate to have a timeout here
-      log.info("waiting for pid %d", pid)
-      return or_fail(waitpid(pid))
-   end,
-   run_async = function(pathname, args, env)
-      return spawn(pathname, args, env or ENV)
-   end,
-   capture = function(format_string, ...)
-      local command = string.format(format_string, ...)
-      return io.popen(command):read("*all")
-   end,
 
    -- exported for testing
    read_tree = read_tree,
