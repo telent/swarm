@@ -385,12 +385,10 @@ main(int argc, char *argv[])
     }
 
     /* Get the returned value at the top of the stack (index -1) */
-    sum = lua_tonumber(L, -1);
-
-    printf("Script returned: %.0f\n", sum);
+    int retval = lua_tonumber(L, -1);
 
     lua_pop(L, 1);  /* Take the returned value out of the stack */
     lua_close(L);   /* Cya, Lua */
 
-    return 0;
+    return retval;
 }
