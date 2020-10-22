@@ -115,7 +115,7 @@ function spawn(watcher, pathname, args, options)
    local pid, failure, outfd, errfd = (options.capture and pfork or fork)()
    if pid==0 then -- child
       -- should we close filehandles here? have we left any open?
-      local flat_env = flatten_env(options.env) -- numeric indexes
+      local flat_env = flatten_env(watcher.environ) -- numeric indexes
       or_fail(execve(pathname, args, flat_env))
       os.exit(0)      -- this *should* be unreachable
    elseif pid > 0 then
@@ -160,13 +160,15 @@ function events(me, timeout_ms)
    end
 end
 
-function new_watcher()
+function new_watcher(config)
+   local config = config or {}
    return {
       sigchld_fd = or_fail(sigchld_fd()),
       inotify_fd = or_fail(inotify_init()),
       watches = {},
       services = {},
       child_fds = {},
+      environ = config.environ,
       subscribe = function(me, service, files)
 	 base_path = path_append(SERVICES_BASE_PATH, service)
 	 me.services[service] = read_tree(service)
