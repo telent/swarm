@@ -1,6 +1,13 @@
 local swarm = require("swarm")
 local inspect = require("inspect")
 
+function qx(command, ...)
+   local s = io.popen(string.format(command,...), "r")
+   local content = s:read("*all")
+   s:close()
+   return content
+end
+
 -- it dumps a table of flat values
 
 swarm.write_state("flatland", {
@@ -16,7 +23,7 @@ flatland/zz9:2:alpha
 flatland/zz9:3:quick brown fox
 flatland/zz9:4:lazy dog
 ]]
-out = swarm.capture("cd %s && grep -nR '' flatland |sort", swarm.SERVICES_BASE_PATH)
+out = qx("cd %s && grep -nR '' flatland |sort", swarm.SERVICES_BASE_PATH)
 assert(out==expected)
 
 
@@ -38,7 +45,7 @@ nestd/lst/4:1:sound
 nestd/tbl/acc:1:mensam
 nestd/tbl/nom:1:mensa
 ]]
-out = swarm.capture("cd %s && grep -nR '' nestd |sort", swarm.SERVICES_BASE_PATH)
+out = qx("cd %s && grep -nR '' nestd |sort", swarm.SERVICES_BASE_PATH)
 assert(out==expected)
 
 -- it creates files under numeric keys in nested table
@@ -58,5 +65,5 @@ undernum/key2/2/b:1:consonant
 undernum/key2/3/e:1:vowel
 undernum/key2/4/y:1:sometimes
 ]]
-out = swarm.capture("cd %s && grep -nR '' undernum |sort", swarm.SERVICES_BASE_PATH)
+out = qx("cd %s && grep -nR '' undernum |sort", swarm.SERVICES_BASE_PATH)
 assert(out==expected)
