@@ -3,22 +3,28 @@ local inspect = require("inspect")
 local f = require("prelude")
 local swarm = require("swarm")
 
-w = swarm.watcher()
-w:spawn(
+w = swarm.watcher({
+      environ = {
+	 TERM = "dumb", PATH="/usr/bin:/run/current-system/sw/bin/"
+}})
+pid = w:spawn(
    os.getenv("PROJECT_ROOT") .. "/tests/support/child.sh",
-   {"child.sh"},
-   {env = {TERM = "dumb", PATH="/usr/bin:/run/current-system/sw/bin/"},
-    capture = true })
-local finished = 0
+   { "child.sh" },
+   { capture = true })
+local finished = false
 local events={}
-while finished < 10 do
-   for event in w:events(10*1000) do
+while not finished  do
+   for event in w:events(5*1000) do
       if event.type=='stream' then
 	 table.insert(events, event)
       end
+      if event.type == 'child' and event.pid == pid then
+	 finished = true
+	 break
+      end
    end
-   finished = finished +1
 end
+
 assert(events[1].message == "capture output stream\n")
 assert(events[1].source.stream == "stdout")
 assert(events[2].message == "capture error stream\n")

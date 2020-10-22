@@ -249,8 +249,8 @@ static int l_next_event(lua_State *L) {
 
   /* receives a sigchld fd and a inotify fd and a table whose keys are
    * pipe fds */
-  int inotify_fd = lua_tonumber(L, 1);
-  int sigchld_fd = lua_tonumber(L, 2);
+  int sigchld_fd = lua_tonumber(L, 1);
+  int inotify_fd = lua_tonumber(L, 2);
   int nfds = countentries(L, 3);
   int timeout_msec = lua_tonumber(L, 4);
 

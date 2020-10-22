@@ -8,7 +8,7 @@ install:
 test: SWARM_BASE_PATH=$(shell mktemp -d)/
 test: src/lua-swarm
 	for i in $(wildcard tests/*.test.lua); do \
-	 echo -n "$$i : " && src/lua-swarm $$i ;\
+	 echo -n "$$i : " && src/lua-swarm $$i && echo OK;\
 	done
 	rm -rf $(SWARM_BASE_PATH)
 

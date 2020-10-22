@@ -155,6 +155,9 @@ function events(me, timeout_ms)
       elseif e.type == "stream" then
 	 source = me.child_fds[e.fd]
 	 e.source = source
+	 if not e.message then
+	    me:watch_fd(e.fd, nil)
+	 end
       end
       return e
    end
