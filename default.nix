@@ -14,12 +14,11 @@ let
       outputs = [ "out" "bin" "dev" ];
 
       postPatch = let ar = "${stdenv.hostPlatform.config}-ar"; in ''
-#      sed -i src/Makefile -e 's/^AR= ar/AR= ${ar}/'
+      sed -i src/Makefile -e 's/^AR= ar/AR= ${ar}/'
+      sed -i src/Makefile -e '/^CC=/d' -e '/^RANLIB=/d'
       sed -i src/luaconf.h -e '/LUA_USE_DLOPEN/d' -e '/LUA_USE_READLINE/d'
     '';
       makeFlags = ["linux"
-                   "CC=gcc"
-#                   "RANLIB=${stdenv.hostPlatform.config}-ranlib"
                    "INSTALL_TOP=${placeholder "out"}"
                   ];
     };
@@ -38,7 +37,6 @@ in stdenv.mkDerivation {
   src = ./.;
   buildInputs = [lua.out lua.dev];
   postPatch = ''
-    echo Woo
     test -L ./lib/inspect.lua || ln -s ${inspect_lua} ./lib/inspect.lua
     test -L ./lib/json.lua || ln -s ${json_lua} ./lib/json.lua
   '';
