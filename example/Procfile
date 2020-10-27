@@ -1,1 +1,1 @@
-lan:lua-swarm ethernet.lua lan wlp4s0
+lan:lua-swarm wlp4s0.lua
