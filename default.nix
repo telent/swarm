@@ -1,5 +1,6 @@
-{ stdenv }:
+{ stdenv, lua53Packages }:
 let
+  hostlua = lua53Packages.lua;
   lua =
     # I don't know why I can't get nixpkgs lua to build without readline
     # but it seems simpler to start from upstream than figure it out
@@ -36,6 +37,7 @@ in stdenv.mkDerivation {
   name = "swarm";
   src = ./.;
   buildInputs = [lua.out lua.dev];
+  nativeBuildInputs = [hostlua];
   postPatch = ''
     test -L ./lib/inspect.lua || ln -s ${inspect_lua} ./lib/inspect.lua
     test -L ./lib/json.lua || ln -s ${json_lua} ./lib/json.lua

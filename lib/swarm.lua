@@ -73,10 +73,21 @@ function changed(event, service, paths)
    return false
 end
 
+function timestamp_now()
+   return slurp("/proc/uptime")
+end
+
 function write_state(service_name, state)
    -- this needs to delete files that don't correspond to table keys,
    -- otherwise it will leave stale data around. Also, need some way
    -- to ensure that downstreams are not reading partly-written files
+   if state.healthy then
+      state.HEALTHY = timestamp_now()
+   else
+      state.HEALTHY = nil
+   end
+   state.healthy = nil
+
    for key, value in pairs(state) do
       local absdir = path_append(SERVICES_BASE_PATH, service_name)
       if not isdir(absdir) then mkdir(absdir) end
@@ -158,6 +169,7 @@ function spawn(watcher, pathname, args, options)
 end
 
 function events(me, timeout_ms)
+   timeout_ms = timeout_ms or 30*1000
    return function()
       local e = next_event(me.sigchld_fd, me.inotify_fd, me.child_fds, timeout_ms)
       if not e then return nil end
@@ -191,6 +203,10 @@ end
 
 function new_watcher(config)
    local config = config or {}
+   config.environ = config.environ or {
+      PATH = os.getenv("PATH"),
+      TERM = "dumb"
+   };
    return {
       sigchld_fd = or_fail(sigchld_fd()),
       inotify_fd = or_fail(inotify_init()),
