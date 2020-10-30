@@ -1,9 +1,6 @@
-{ stdenv }:
+{ buildPackages, stdenv ? buildPackages.stdenv }:
 let
-  lua =
-    # I don't know why I can't get nixpkgs lua to build without readline
-    # but it seems simpler to start from upstream than figure it out
-    stdenv.mkDerivation {
+  luaAttribs =  {
       pname = "lua";
       version = "5.4.0";
       src = builtins.fetchurl {
@@ -11,17 +8,19 @@ let
         sha256 = "0a3ysjgcw41x5r1qiixhrpj2j1izp693dvmpjqd457i1nxp87h7a";
       };
       stripAllList = [ "bin" ];
-      outputs = [ "out" "bin" "dev" ];
-
-      postPatch = let ar = "${stdenv.hostPlatform.config}-ar"; in ''
-      sed -i src/Makefile -e 's/^AR= ar/AR= ${ar}/'
-      sed -i src/Makefile -e '/^CC=/d' -e '/^RANLIB=/d'
-      sed -i src/luaconf.h -e '/LUA_USE_DLOPEN/d' -e '/LUA_USE_READLINE/d'
-    '';
+      postPatch = ''
+        sed -i src/Makefile -e "s/^AR= ar/AR= ''$AR/"
+        sed -i src/Makefile -e '/^CC=/d' -e '/^RANLIB=/d'
+        sed -i src/luaconf.h -e '/LUA_USE_DLOPEN/d' -e '/LUA_USE_READLINE/d'
+      '';
       makeFlags = ["linux"
                    "INSTALL_TOP=${placeholder "out"}"
                   ];
     };
+    # I don't know why I can't get nixpkgs lua to build without readline
+    # but it seems simpler to start from upstream than figure it out
+  lua = stdenv.mkDerivation luaAttribs;
+  luaBuild = buildPackages.stdenv.mkDerivation luaAttribs;
   inspect_lua = builtins.fetchurl {
     url = "https://raw.githubusercontent.com/kikito/inspect.lua/master/inspect.lua";
     name = "inspect.lua";
@@ -35,7 +34,10 @@ let
 in stdenv.mkDerivation {
   name = "swarm";
   src = ./.;
-  buildInputs = [lua.out lua.dev];
+  CFLAGS = "-I${lua}/include";
+  LDFLAGS = "-L${lua}/lib";
+  depsBuildHost = [lua];
+  NATIVE_LUAC = "${luaBuild}/bin/luac";
   postPatch = ''
     test -L ./lib/inspect.lua || ln -s ${inspect_lua} ./lib/inspect.lua
     test -L ./lib/json.lua || ln -s ${json_lua} ./lib/json.lua

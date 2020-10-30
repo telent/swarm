@@ -47,8 +47,10 @@ Every service in NixWRT represents its state to other services in a
 directory /run/services/servicename. Within this directory we expect
 to find (up to) two files with standardized UPPERCASE names, plus a an
 arbitrary number of other files (and directories) with lowercase names
-containing whatever other state it may want to make available.  This
-might be something like
+containing whatever other state it may want to make available.  Each
+filename corresponds to a "simple" value (no lumps of json or
+key=value\nkeyvalue) - use subdirectories in the filesystem to model
+structured values.  This might be something like
 
 
 ```
