@@ -159,6 +159,7 @@ function spawn(watcher, pathname, args, options)
 end
 
 function events(me, timeout_ms)
+   timeout_ms = timeout_ms or 30*1000
    return function()
       local e = next_event(me.sigchld_fd, me.inotify_fd, me.child_fds, timeout_ms)
       if not e then return nil end
