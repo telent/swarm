@@ -32,11 +32,7 @@ function run(arguments)
    local iface = arguments.iface
    print("service " .. name , "if " .. iface)
 
-   local w = swarm.watcher({
-	 environ = {
-	    PATH = os.getenv("PATH"),
-	    TERM = "dumb"
-   }})
+   local w = swarm.watcher()
 
    w:subscribe("dhcp6c", {"address", "routes", "netmask"})
 

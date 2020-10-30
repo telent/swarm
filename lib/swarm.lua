@@ -192,6 +192,10 @@ end
 
 function new_watcher(config)
    local config = config or {}
+   config.environ = config.environ or {
+      PATH = os.getenv("PATH"),
+      TERM = "dumb",
+   };
    return {
       sigchld_fd = or_fail(sigchld_fd()),
       inotify_fd = or_fail(inotify_init()),
