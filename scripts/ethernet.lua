@@ -14,16 +14,24 @@ end
 function get_state(w, ip, ifname)
    local linkstate = ip_state_json(w, ip, {"link", "show", ifname})
    local addrstate = ip_state_json(w, ip, {"address", "show", ifname})
-   local healthy = linkstate.operstate == "UP" and
-      f.find(function(x) return (x.scope == "global") end,
-	 addrstate.addr_info)
-   local carrier = not f.find(function(x) return (x == "NO-CARRIER") end,
-      linkstate.flags)
-   return {
-      healthy = healthy,
-      state = linkstate["operstate"],
-      carrier = (carrier and "true" or "false"),
-   }
+   if linkstate and addrstate then
+      local healthy = linkstate.operstate == "UP" and
+	 f.find(function(x) return (x.scope == "global") end,
+	    addrstate.addr_info)
+      local carrier = not f.find(function(x) return (x == "NO-CARRIER") end,
+	 linkstate.flags)
+      return {
+	 healthy = healthy,
+	 STATUS = linkstate["operstate"],
+	 carrier = (carrier and "true" or "false"),
+      }
+   else
+      return {
+	 healthy = false,
+	 STATUS = "no-interface",
+	 carrier = "false",
+      }
+   end
 end
 
 function run(arguments)
@@ -37,6 +45,7 @@ function run(arguments)
    -- w:subscribe("dhcp6c", {"address", "routes", "netmask"})
 
    while true do
+      swarm.write_state(name, get_state(w, arguments.paths.ip, iface))
       for event in w:events() do
 	 -- if event.changed and event:changed("dhcp6c", {"address", "netmask"}) then
 	 --    local dhcp6c = event.values.dhcp6c
@@ -55,7 +64,6 @@ function run(arguments)
 	 --    break
 	 -- end
       end
-      swarm.write_state(name, get_state(w, arguments.paths.ip, iface))
    end
 end
 
