@@ -130,7 +130,9 @@ end
 function spawn(watcher, pathname, args, options)
    local flat_env = flatten_env(watcher.environ) -- numeric indexes
    local pid, failure, outfd, errfd = (options.capture and pfork or fork)()
-   if pid==0 then -- child
+   if not pid then -- error
+      log.info("fork %s %s failed: %d", pathname, inspect(args), failure)
+   elseif pid==0 then -- child
       -- should we close filehandles here? have we left any open?
       or_fail(execve(pathname, args, flat_env))
       os.exit(0)      -- this *should* be unreachable
@@ -141,9 +143,8 @@ function spawn(watcher, pathname, args, options)
 	 watcher:watch_fd(outfd, {pid = pid, stream = "stdout"})
 	 watcher:watch_fd(errfd, {pid = pid, stream = "stderr"})
       end
-   else
-      log.info("fork %s %s failed: %d", pathname, inspect(args), failure)
    end
+
    if options.wait then
       local pid, failure = waitpid(pid)
       if(options.capture) then
