@@ -128,15 +128,15 @@ function capture_streams_sync(fds)
 end
 
 function spawn(watcher, pathname, args, options)
+   local flat_env = flatten_env(watcher.environ) -- numeric indexes
    local pid, failure, outfd, errfd = (options.capture and pfork or fork)()
    if pid==0 then -- child
       -- should we close filehandles here? have we left any open?
-      local flat_env = flatten_env(watcher.environ) -- numeric indexes
       or_fail(execve(pathname, args, flat_env))
       os.exit(0)      -- this *should* be unreachable
    elseif pid > 0 then
       log.info("running %s %s, pid %d", pathname, inspect(args), pid)
-      log.debug("environment for pid %d: %s", pid, inspect(options.env))
+      log.debug("environment for pid %d: %s", pid, inspect(flat_env))
       if options.capture and not options.wait then
 	 watcher:watch_fd(outfd, {pid = pid, stream = "stdout"})
 	 watcher:watch_fd(errfd, {pid = pid, stream = "stderr"})
