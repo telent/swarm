@@ -11,11 +11,16 @@ function slurp(name)
 end
 
 function spit(name, contents)
-   local f = io.open(name, "wb")
+   local tmp=name .. "#"
+   local f,err = io.open(tmp, "wb")
+   if not f then
+      print(err)
+   end
+
    f:write(contents)
    f:close()
+   os.rename(tmp, name)
 end
-
 
 function path_append(base, branch)
    if base:sub(-1) == "/" then
@@ -32,7 +37,7 @@ function read_tree(tree, base_path)
       for _,name in ipairs(dir(absolute_tree)) do
 	 local relname = prefix .. name
 	 local absname = path_append(absolute_tree, name)
-	 if name == "." or name == ".." then
+	 if name:sub(1,1) == "." or name:sub(-1) == "#"  then
 	    -- skip
 	 elseif isdir(absname) then
 	    read_tree_aux(relname .. "/", absname)
@@ -73,29 +78,40 @@ function changed(event, service, paths)
    return false
 end
 
-function timestamp_now()
-   return slurp("/proc/uptime")
+function rm_r(pathname)
+   local ret, strerr, errno = os.remove(pathname)
+   if not ret and errno==39 then
+      for _,member in ipairs(dir(pathname)) do
+	 if not (member == "." or member == "..") then
+	    rm_r(path_append(pathname, member))
+	 end
+      end
+   end
 end
 
 function write_state(service_name, state)
-   -- this needs to delete files that don't correspond to table keys,
+   local absdir = path_append(SERVICES_BASE_PATH, service_name)
+   if not isdir(absdir) then mkdir(absdir) end
+   -- have not addressed: this needs to delete files that don't correspond to table keys,
    -- otherwise it will leave stale data around. Also, need some way
    -- to ensure that downstreams are not reading partly-written files
    if state.healthy then
-      state.HEALTHY = timestamp_now()
-   else
-      state.HEALTHY = nil
+      state.HEALTHY = slurp("/proc/uptime")
    end
    state.healthy = nil
-
+   local existing = dir(absdir) or {}
    for key, value in pairs(state) do
-      local absdir = path_append(SERVICES_BASE_PATH, service_name)
-      if not isdir(absdir) then mkdir(absdir) end
+      existing[key] = nil
       local relpath = path_append(service_name, key)
       if type(value) == 'table' then
 	 write_state(relpath, value)
       else
 	 spit(path_append(SERVICES_BASE_PATH,relpath), value)
+      end
+   end
+   for _, oldfile in ipairs(existing) do
+      if not (oldfile == '.' or oldfile == '..') then
+	 rm_r(path_append(absdir, oldfile))
       end
    end
 end
