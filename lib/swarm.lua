@@ -231,6 +231,7 @@ function new_watcher(config)
       services = {},
       child_fds = {},
       environ = config.environ,
+      config = config,
       subscribe = function(me, service, files)
 	 base_path = path_append(SERVICES_BASE_PATH, service)
 	 me.services[service] = read_tree(service)
