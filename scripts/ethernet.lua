@@ -5,7 +5,6 @@ local json = require("json")
 local inspect = require("inspect")
 
 function ip_state_json(w, command)
-   print(inspect(w.config))
    local o = w:spawn(w.config.paths.ip,
 		     {"ip", "-j", table.unpack(command)},
 		     { wait = true, capture = true })
