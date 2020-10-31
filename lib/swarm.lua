@@ -11,11 +11,16 @@ function slurp(name)
 end
 
 function spit(name, contents)
-   local f = io.open(name, "wb")
+   local tmp=name .. "#"
+   local f,err = io.open(tmp, "wb")
+   if not f then
+      print(err)
+   end
+
    f:write(contents)
    f:close()
+   os.rename(tmp, name)
 end
-
 
 function path_append(base, branch)
    if base:sub(-1) == "/" then
@@ -32,7 +37,7 @@ function read_tree(tree, base_path)
       for _,name in ipairs(dir(absolute_tree)) do
 	 local relname = prefix .. name
 	 local absname = path_append(absolute_tree, name)
-	 if name == "." or name == ".." then
+	 if name:sub(1,1) == "." or name:sub(-1) == "#"  then
 	    -- skip
 	 elseif isdir(absname) then
 	    read_tree_aux(relname .. "/", absname)
