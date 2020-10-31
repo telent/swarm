@@ -73,22 +73,40 @@ function changed(event, service, paths)
    return false
 end
 
+function rm_r(pathname)
+   local ret, strerr, errno = os.remove(pathname)
+   if not ret and errno==39 then
+      for _,member in ipairs(dir(pathname)) do
+	 if not (member == "." or member == "..") then
+	    rm_r(path_append(pathname, member))
+	 end
+      end
+   end
+end
+
 function write_state(service_name, state)
-   -- this needs to delete files that don't correspond to table keys,
+   local absdir = path_append(SERVICES_BASE_PATH, service_name)
+   if not isdir(absdir) then mkdir(absdir) end
+   -- have not addressed: this needs to delete files that don't correspond to table keys,
    -- otherwise it will leave stale data around. Also, need some way
    -- to ensure that downstreams are not reading partly-written files
    if state.healthy then
       state.HEALTHY = slurp("/proc/uptime")
    end
    state.healthy = nil
+   local existing = dir(absdir) or {}
    for key, value in pairs(state) do
-      local absdir = path_append(SERVICES_BASE_PATH, service_name)
-      if not isdir(absdir) then mkdir(absdir) end
+      existing[key] = nil
       local relpath = path_append(service_name, key)
       if type(value) == 'table' then
 	 write_state(relpath, value)
       else
 	 spit(path_append(SERVICES_BASE_PATH,relpath), value)
+      end
+   end
+   for _, oldfile in ipairs(existing) do
+      if not (oldfile == '.' or oldfile == '..') then
+	 rm_r(path_append(absdir, oldfile))
       end
    end
 end

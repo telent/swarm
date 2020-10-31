@@ -94,3 +94,26 @@ end
 
 actual = write_and_read({ healthy = false, state = "bad"})
 assert(not actual:find("HEALTHY"))
+
+
+-- it removes previous state when writing new state
+
+local servicename=randomstring(10)
+write_and_read({
+      healthy = false,
+      state = "bad",
+      zombie = "brains"
+	       }, servicename)
+actual = write_and_read({ healthy = true }, servicename)
+
+assert(not actual:find("zombie:1:brains"))
+
+local servicename=randomstring(10)
+write_and_read({
+      healthy = false,
+      state = "bad",
+      zombie = { need = "brains" }
+	       }, servicename)
+actual = write_and_read({ healthy = true }, servicename)
+
+assert(not actual:find("zombie/need:1:brains"), actual)
