@@ -141,7 +141,7 @@ end
 function spawn(watcher, pathname, args, options)
    local flat_env = flatten_env(watcher.environ) -- numeric indexes
    local pid, failure, outfd, errfd = (options.capture and pfork or fork)()
-   if not pid then
+   if not pid then -- error
       log.info("fork %s %s failed: %d", pathname, inspect(args), failure)
    elseif pid==0 then -- child
       -- should we close filehandles here? have we left any open?
@@ -155,6 +155,7 @@ function spawn(watcher, pathname, args, options)
 	 watcher:watch_fd(errfd, {pid = pid, stream = "stderr"})
       end
    end
+
    if options.wait then
       local pid, failure = waitpid(pid)
       if(options.capture) then
@@ -205,7 +206,7 @@ function new_watcher(config)
    local config = config or {}
    config.environ = config.environ or {
       PATH = os.getenv("PATH"),
-      TERM = "dumb"
+      TERM = "dumb",
    };
    return {
       sigchld_fd = or_fail(sigchld_fd()),
