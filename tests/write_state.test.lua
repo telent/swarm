@@ -67,3 +67,20 @@ undernum/key2/4/y:1:sometimes
 ]]
 out = qx("cd %s && grep -nR '' undernum |sort", swarm.SERVICES_BASE_PATH)
 assert(out==expected)
+
+-- it writes a timestamp in HEALTHY if passed a state with
+-- a truthy `healthy` key
+
+timestamp = qx("cat /proc/uptime | cut -d' ' -f1")
+swarm.write_state("corporesana", { healthy = true, })
+out = qx("cd %s && grep -nR '' corporesana |sort", swarm.SERVICES_BASE_PATH)
+
+for match in out:gmatch("corporesana/HEALTHY:1:(%d+.%d+)") do
+   assert((match + 0) - (timestamp +0) < 1)
+end
+
+-- it does not write HEALTHY if no truthy `healthy` key
+
+swarm.write_state("poorly", { healthy = false, state = "bad"})
+out = qx("cd %s && grep -nR '' poorly |sort", swarm.SERVICES_BASE_PATH)
+assert(not out:find("HEALTHY"))

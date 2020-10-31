@@ -77,6 +77,10 @@ function write_state(service_name, state)
    -- this needs to delete files that don't correspond to table keys,
    -- otherwise it will leave stale data around. Also, need some way
    -- to ensure that downstreams are not reading partly-written files
+   if state.healthy then
+      state.HEALTHY = slurp("/proc/uptime")
+   end
+   state.healthy = nil
    for key, value in pairs(state) do
       local absdir = path_append(SERVICES_BASE_PATH, service_name)
       if not isdir(absdir) then mkdir(absdir) end
