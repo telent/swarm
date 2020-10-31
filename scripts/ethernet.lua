@@ -17,8 +17,7 @@ function get_state(w, ifname)
    if linkstate and addrstate then
       local healthy = linkstate.operstate == "UP" and
 	 f.find(function(x) return (x.scope == "global") end,
-	    addrstate.addr_info) and
-	 true
+	    addrstate.addr_info)
       local carrier = not f.find(function(x) return (x == "NO-CARRIER") end,
 	 linkstate.flags)
       return {
