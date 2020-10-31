@@ -1,7 +1,7 @@
 default: src/lua-swarm
 
 install:
-	luac -p example/*.lua lib/*.lua scripts/*.lua
+	$(NATIVE_LUAC) -p example/*.lua lib/*.lua scripts/*.lua
 	mkdir -p $(DESTDIR)/bin $(DESTDIR)/lib
 	install src/lua-swarm $(DESTDIR)/bin
 	cp -r lib/* $(DESTDIR)/lib
