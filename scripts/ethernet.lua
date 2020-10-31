@@ -37,7 +37,8 @@ function run(arguments)
    w:subscribe("dhcp6c", {"address", "routes", "netmask"})
 
    while true do
-      for event in w:events(4*1000) do -- argument to events is the poll time (ms)
+      swarm.write_state(name, get_state(w, ifname))
+      for event in w:events() do
 	 if event.changed and event:changed("dhcp6c", {"address", "netmask"}) then
 	    local dhcp6c = event.values.dhcp6c
 	    w:spawn(arguments.paths.ip,
@@ -55,7 +56,6 @@ function run(arguments)
 	    break
 	 end
       end
-      swarm.write_state(name, get_state(w, ifname))
    end
 end
 
