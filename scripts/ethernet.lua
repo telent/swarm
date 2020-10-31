@@ -5,7 +5,7 @@ local json = require("json")
 local inspect = require("inspect")
 
 function ip_state_json(w, command)
-   local o = w:spawn("/run/current-system/sw/bin/ip",
+   local o = w:spawn(w.config.paths.ip,
 		     {"ip", "-j", table.unpack(command)},
 		     { wait = true, capture = true })
    return json.decode(o)[1]
@@ -32,7 +32,7 @@ function run(arguments)
    local iface = arguments.iface
    print("service " .. name , "if " .. iface)
 
-   local w = swarm.watcher()
+   local w = swarm.watcher(arguments)
 
    w:subscribe("dhcp6c", {"address", "routes", "netmask"})
 
