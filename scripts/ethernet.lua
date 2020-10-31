@@ -12,19 +12,27 @@ function ip_state_json(w, command)
 end
 
 function get_state(w, ifname)
-   linkstate = ip_state_json(w, {"link", "show", ifname})
-   addrstate = ip_state_json(w, {"address", "show", ifname})
-   healthy = linkstate.operstate == "UP" and
-      f.find(function(x) return (x.scope == "global") end,
-	 addrstate.addr_info) and
-      true
-   carrier = not f.find(function(x) return (x == "NO-CARRIER") end,
-      linkstate.flags)
-   return {
-      healthy = (healthy and "true" or "false"),
-      state = linkstate["operstate"],
-      carrier = (carrier and "true" or "false"),
-   }
+   local linkstate = ip_state_json(w, {"link", "show", ifname})
+   local addrstate = ip_state_json(w, {"address", "show", ifname})
+   if linkstate and addrstate then
+      local healthy = linkstate.operstate == "UP" and
+	 f.find(function(x) return (x.scope == "global") end,
+	    addrstate.addr_info) and
+	 true
+      local carrier = not f.find(function(x) return (x == "NO-CARRIER") end,
+	 linkstate.flags)
+      return {
+	 healthy = healthy,
+	 STATUS = linkstate["operstate"],
+	 carrier = (carrier and "true" or "false"),
+      }
+   else
+      return {
+	 healthy = false,
+	 STATUS = "no-interface",
+	 carrier = "false",
+      }
+   end
 end
 
 function run(arguments)
