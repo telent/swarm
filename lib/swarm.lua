@@ -62,22 +62,6 @@ function dirname(pathname)
    return pathname:match("(.*/)")
 end
 
-function changed(event, service, paths)
-   if event.changes and event.changes[service] then
-      local newer = event.changes[service].after
-      local older = event.changes[service].before
-      for _,path in ipairs(paths) do
-	 if not older then
-	    return true
-	 end
-	 if not (newer[path] == older[path]) then
-	    return true
-	 end
-      end
-   end
-   return false
-end
-
 function rm_r(pathname)
    local ret, strerr, errno = os.remove(pathname)
    if not ret and errno==39 then
@@ -184,7 +168,8 @@ end
 
 function events(me, timeout_ms)
    timeout_ms = timeout_ms or 30*1000
-   return function()
+   local do_next_event
+   do_next_event = function()
       local e = next_event(me.sigchld_fd, me.inotify_fd, me.child_fds, timeout_ms)
       if not e then return nil end
       if e.type == "file" then
@@ -192,17 +177,23 @@ function events(me, timeout_ms)
 	 for wd,mask in pairs(e.watches) do
 	    need_reread[me.watches[wd]]=true
 	 end
-	 changes = {}
+	 local changes = {}
+	 local filtered = true
 	 for service,_ in pairs(need_reread) do
 	    local state = read_tree(service)
-	    changes[service] = {
-	       before = me.values[service],
-	       after = state
-	    }
+	    changes[service] = f.difftree(me.values[service] or {}, state)
+	    if f.find(function(k) return changes[service][k] end,
+            	      me.subscriptions[service]) then
+	       filtered = false
+	    end
 	    me.values[service] = state
 	 end
-	 e.changed = changed
 	 e.changes = changes
+	 if filtered then
+	    -- no files changed that we were subscribed to. we can
+	    -- skip this event, get the next one
+	    return do_next_event()
+	 end
       elseif e.type == "stream" then
 	 source = me.child_fds[e.fd]
 	 e.source = source
@@ -212,6 +203,7 @@ function events(me, timeout_ms)
       end
       return e
    end
+   return do_next_event
 end
 
 function new_watcher(config)
@@ -237,6 +229,7 @@ function new_watcher(config)
 	    local dir = dirname(path_append(base_path, file))
 	    me:watch_file(service, dir)
 	 end
+	 me.values[service] = read_tree(service)
       end,
       watch_file = function(me, service, file)
 	 wd, err = inotify_add_watch(me.inotify_fd, file)

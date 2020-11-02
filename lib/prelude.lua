@@ -10,8 +10,26 @@ function find(f,collection)
       end
    end
 end
+
+-- returns a nested table whose keys are the keys of `old` that have
+-- different values in `new` or vice versa. Include keys which are abent
+-- from one or other table
+function difftree(old, new)
+   function difftree_(old, new, diff)
+      for k,v in pairs(new) do
+	 if type(v) == 'table' then
+	    diff[k] = difftree(old[k] or {}, v)
+	 else
+	    if v ~= old[k] then
+	       diff[k] = true
+	    end
 	 end
       end
+      return diff
+   end
+   return difftree_(old, new, difftree_(new, old, {}))
+end
+
 return {
    find = find,
    contains = function(collection, item)
@@ -36,5 +54,6 @@ return {
 	 out[v]=k
       end
       return out
-   end
+   end,
+   difftree = difftree
 }
