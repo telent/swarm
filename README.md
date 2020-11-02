@@ -3,8 +3,13 @@
 a.k.a Service Watcher and Autonomous Restart Monitor
 (acronym subject to change)
 
-[ This README is aspirational not definitional.  It describes the
-  future that (we think) we'd like, not the present that we have ]
+[ Note 1: This README is aspirational not definitional.  It describes the
+  future that (we think) we'd like, not the present that we have
+
+  Note 2: I am reasonably meticulous about running tests before
+  pushing, but there is no guarantee that the files in scripts/
+  will be up-to-date when api changes are made.
+]
 
 
 ## Motivation
