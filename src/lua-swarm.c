@@ -290,10 +290,12 @@ static int l_next_event(lua_State *L) {
       lua_settable(L, -3);
       lua_pushstring(L, "watches");
       lua_newtable(L);
-      for(int i=0; i < num/sizeof( struct inotify_event); i++) {
-	lua_pushinteger(L, ino_events[i].wd);
-	lua_pushinteger(L, ino_events[i].wd);
+      struct inotify_event *e = ino_events;
+      while(e < (struct ino_event *) ((char *) ino_events + num)) {
+	lua_pushinteger(L, e->wd);
+	lua_pushinteger(L, e->mask);
 	lua_settable(L, -3);
+	e = e + sizeof(struct inotify_event)+e->len;
       }
       lua_settable(L, -3);
       return 1;

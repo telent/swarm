@@ -115,5 +115,4 @@ write_and_read({
       zombie = { need = "brains" }
 	       }, servicename)
 actual = write_and_read({ healthy = true }, servicename)
-
 assert(not actual:find("zombie/need:1:brains"), actual)
