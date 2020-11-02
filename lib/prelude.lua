@@ -3,13 +3,19 @@ local inspect = require("inspect")
 --  a random selection of "functional" functions patterned broadly
 --  after Ruby's Enumerable interface
 
-return {
-   find = function(f,collection)
-      for k,v in pairs(collection) do
-	 if f(v) then
-	    return v
+function find(f,collection)
+   for k,v in pairs(collection) do
+      if f(v) then
+	 return v
+      end
+   end
+end
 	 end
       end
+return {
+   find = find,
+   contains = function(collection, item)
+      return find(function(x) return x==item end, collection)
    end,
    map = function(f,collection)
       local out={}
