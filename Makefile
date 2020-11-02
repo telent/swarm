@@ -10,9 +10,10 @@ install:
 
 test: SWARM_BASE_PATH=$(shell mktemp -d)/
 test: src/lua-swarm
+	@echo  $$SWARM_BASE_PATH
 	for i in $(wildcard tests/*.test.lua); do \
 	 echo -n "$$i : " && src/lua-swarm $$i && echo OK;\
 	done
-	rm -rf $(SWARM_BASE_PATH)
+	rm -rf $$SWARM_BASE_PATH
 
 LOADLIBES=-llua -lm
