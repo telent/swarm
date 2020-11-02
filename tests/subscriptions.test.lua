@@ -16,10 +16,9 @@ swarm.write_state("a_service", {key1 = "octopus", key2 = "val2"  })
 -- I am notified and I can see the new value
 local received = false
 for event in w:events(0.1) do
-   print(inspect(event))
    if event.changed and
       event:changed("a_service", {"key1"}) and
-      event.values.a_service.key1 == "octopus" then
+      w.values.a_service.key1 == "octopus" then
       received = true
    end
 end

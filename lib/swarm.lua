@@ -188,22 +188,21 @@ function events(me, timeout_ms)
       local e = next_event(me.sigchld_fd, me.inotify_fd, me.child_fds, timeout_ms)
       if not e then return nil end
       if e.type == "file" then
-	 local changes = {}
-	 local values = {}
-	 for _,wd in pairs(e.watches) do
-	    local service_name = me.watches[wd].service
-	    if not changes[service_name] then
-	       values[service_name] = read_tree(service_name)
-	       changes[service_name] = {
-		  before = me.services[service_name],
-		  after = values[service_name]
-	       }
-	       me.services[service_name] = values[service_name]
-	    end
+	 local need_reread = {}
+	 for wd,mask in pairs(e.watches) do
+	    need_reread[me.watches[wd]]=true
+	 end
+	 changes = {}
+	 for service,_ in pairs(need_reread) do
+	    local state = read_tree(service)
+	    changes[service] = {
+	       before = me.values[service],
+	       after = state
+	    }
+	    me.values[service] = state
 	 end
 	 e.changed = changed
-	 e.changes =  changes
-	 e.values = values
+	 e.changes = changes
       elseif e.type == "stream" then
 	 source = me.child_fds[e.fd]
 	 e.source = source
@@ -224,27 +223,25 @@ function new_watcher(config)
    return {
       sigchld_fd = or_fail(sigchld_fd()),
       inotify_fd = or_fail(inotify_init()),
-      watches = {},
-      services = {},
-      child_fds = {},
+      watches = {},		-- map of watch descriptor -> service name
+      values = {},		-- \/ subscriptions, servicename -> values
+      child_fds = {},		-- fd -> {pid, stream name}
       environ = config.environ,
       config = config,
+      subscriptions = {},	-- servicename -> array of watched filenames
       subscribe = function(me, service, files)
 	 base_path = path_append(SERVICES_BASE_PATH, service)
-	 me.services[service] = read_tree(service)
+	 me.subscriptions[service] =
+	    f.cat_tables(me.subscriptions[service] or {}, files)
 	 for _,file in ipairs(files) do
-	    me:watch_file(service, path_append(base_path, file))
+	    local dir = dirname(path_append(base_path, file))
+	    me:watch_file(service, dir)
 	 end
       end,
       watch_file = function(me, service, file)
 	 wd, err = inotify_add_watch(me.inotify_fd, file)
 	 if wd then
-	    me.watches[wd] = { service = service, file = file };
-	 elseif errno[err] == "ENOENT" then
-	    -- XXX if we get a 'file created' event from the directory watch
-	    -- here, we need to add a watch for the file as well
-	    print(file .. " does not exist")
-	    me:watch_file(service, dirname(file))
+	    me.watches[wd] = service
 	 else
 	    error("watch_file: " .. err .. ", " .. (errno[err] or "(unknown)"))
 	 end
