@@ -18,4 +18,11 @@ return {
       end
       return out
    end,
+   invert = function(t1)
+      local out={}
+      for k,v in pairs(t1) do
+	 out[v]=k
+      end
+      return out
+   end
 }

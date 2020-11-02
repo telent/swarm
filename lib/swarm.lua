@@ -92,14 +92,11 @@ end
 function write_state(service_name, state)
    local absdir = path_append(SERVICES_BASE_PATH, service_name)
    if not isdir(absdir) then mkdir(absdir) end
-   -- have not addressed: this needs to delete files that don't correspond to table keys,
-   -- otherwise it will leave stale data around. Also, need some way
-   -- to ensure that downstreams are not reading partly-written files
    if state.healthy then
       state.HEALTHY = slurp("/proc/uptime")
    end
    state.healthy = nil
-   local existing = dir(absdir) or {}
+   local existing = f.invert(dir(absdir)) or {}
    for key, value in pairs(state) do
       existing[key] = nil
       local relpath = path_append(service_name, key)
@@ -109,7 +106,7 @@ function write_state(service_name, state)
 	 spit(path_append(SERVICES_BASE_PATH,relpath), value)
       end
    end
-   for _, oldfile in ipairs(existing) do
+   for oldfile, _ in pairs(existing) do
       if not (oldfile == '.' or oldfile == '..') then
 	 rm_r(path_append(absdir, oldfile))
       end
