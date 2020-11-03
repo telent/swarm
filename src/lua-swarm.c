@@ -332,6 +332,14 @@ static int l_next_event(lua_State *L) {
   }
 }
 
+static int l_handle_error(lua_State* L) {
+  const char * msg = lua_tostring(L, -1);
+  luaL_traceback(L, L, msg, 2);
+  lua_remove(L, -2); // Remove error/"msg" from stack.
+  return 1; // Traceback is returned.
+}
+
+
 
 int
 main(int argc, char *argv[])
@@ -349,6 +357,8 @@ main(int argc, char *argv[])
     luaL_openlibs(L); /* Load Lua libraries */
 
     l_errno_table(L);
+
+    lua_pushcfunction(L, l_handle_error);
     /* Load the file containing the script we are going to run */
     status = luaL_loadfile(L, argv[1]);
     if (status) {
@@ -380,7 +390,7 @@ main(int argc, char *argv[])
     lua_register(L, "waitpid", l_waitpid);
 
     /* Ask Lua to run our little script */
-    result = lua_pcall(L, 0, LUA_MULTRET, 0);
+    result = lua_pcall(L, 0, LUA_MULTRET, -2);
     if (result) {
         fprintf(stderr, "Failed to run script: %s\n", lua_tostring(L, -1));
         exit(1);
