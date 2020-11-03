@@ -62,6 +62,18 @@ function dirname(pathname)
    return pathname:match("(.*/)")
 end
 
+function trimslash(pathname)
+   if pathname:sub(-1) == "/" then
+      return pathname:sub(1,-2)
+   else
+      return pathname
+   end
+end
+
+function parentdir(pathname)
+   return dirname(trimslash(pathname))
+end
+
 function rm_r(pathname)
    local ret, strerr, errno = os.remove(pathname)
    if not ret and errno==39 then
@@ -166,6 +178,8 @@ function spawn(watcher, pathname, args, options)
    return or_fail(pid, failure)
 end
 
+NO_SERVICE = "...\0not a valid service name\0..."
+
 function events(me, timeout_ms)
    timeout_ms = timeout_ms or 30*1000
    local do_next_event
@@ -174,8 +188,12 @@ function events(me, timeout_ms)
       if not e then return nil end
       if e.type == "file" then
 	 local need_reread = {}
-	 for wd,mask in pairs(e.watches) do
-	    need_reread[me.watches[wd]]=true
+	 for wd,filename in pairs(e.watches) do
+	    local service = me.watches[wd]
+	    if service==NO_SERVICE then -- watch is on the root dir so
+	       service = filename	-- use the filename as service name
+	    end
+	    need_reread[service]=true
 	 end
 	 local changes = {}
 	 local filtered = true
@@ -189,6 +207,8 @@ function events(me, timeout_ms)
 	    me.values[service] = state
 	 end
 	 e.changes = changes
+	 -- XXX this would be a good time to refresh inotify watches
+	 -- I don't have a failing test yet, but I know it's a bug we don't
 	 if filtered then
 	    -- no files changed that we were subscribed to. we can
 	    -- skip this event, get the next one
@@ -227,16 +247,26 @@ function new_watcher(config)
 	    f.cat_tables(me.subscriptions[service] or {}, files)
 	 for _,file in ipairs(files) do
 	    local dir = dirname(path_append(base_path, file))
-	    me:watch_file(service, dir)
+	    while dir > SERVICES_BASE_PATH and not isdir(dir) do
+	       dir = parentdir(dir)
+	    end
+	    if trimslash(dir) == trimslash(SERVICES_BASE_PATH) then
+	       service = NO_SERVICE
+	       me:watch_file(service, SERVICES_BASE_PATH)
+	    else
+	       me:watch_file(service, dir)
+	    end
 	 end
-	 me.values[service] = read_tree(service)
+	 if service ~= NO_SERVICE then
+	    me.values[service] = read_tree(service)
+	 end
       end,
       watch_file = function(me, service, file)
 	 wd, err = inotify_add_watch(me.inotify_fd, file)
 	 if wd then
 	    me.watches[wd] = service
 	 else
-	    error("watch_file: " .. err .. ", " .. (errno[err] or "(unknown)"))
+	    error("watch_file: " .. file .. ", "  .. err .. ", " .. (errno[err] or "(unknown)"))
 	 end
       end,
       watch_fd = function(me, fd, source)

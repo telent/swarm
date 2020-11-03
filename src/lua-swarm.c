@@ -108,6 +108,7 @@ static int l_inotify_add_watch(lua_State *L) {
   const char* name  = lua_tostring(L, -1);
   watch_d = inotify_add_watch(fd, name,
 			      IN_CLOSE_WRITE |
+			      IN_CREATE |
 			      IN_DELETE |
 			      IN_DELETE_SELF |
 			      IN_MOVED_TO);
@@ -293,7 +294,7 @@ static int l_next_event(lua_State *L) {
       struct inotify_event *e = ino_events;
       while(e < (struct ino_event *) ((char *) ino_events + num)) {
 	lua_pushinteger(L, e->wd);
-	lua_pushinteger(L, e->mask);
+	lua_pushstring(L, e->name);
 	lua_settable(L, -3);
 	e = e + sizeof(struct inotify_event)+e->len;
       }
