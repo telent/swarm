@@ -101,15 +101,33 @@ assert(find_event(function (event)
 		w.values.service_not_started_2.key10 == "club"
 		 end), "missing event")
 
-
-
-
+------------
 -- given a service exists with some values
+swarm.write_state("a_service2", {key1 = "val1", key2 = "val2"  })
+
 -- and I have subscribed to one of them
+
+w = swarm.watcher({})
+w:subscribe("a_service2", {"key1"})
+
 -- when it is deleted
--- I am notified
+swarm.write_state("a_service2", { key2 = "val2"  })
+
+-- I am notified and I can see the change
+assert(find_event(function (event)
+	     return event.changes["a_service2"]["key1"] and
+		w.values.a_service2.key1 == nil
+		 end),
+       "missing event")
+
 -- when it is recreated
+swarm.write_state("a_service2", { key1= "revenant", key2 = "val2"  })
 -- I am notified again
+assert(find_event(function (event)
+	     return event.changes["a_service2"]["key1"] and
+		w.values.a_service2.key1 == "revenant"
+		 end),
+       "missing event")
 
 -- my notification tells me what has changed since the previous notification
 -- (even values I am not subscribed to)
