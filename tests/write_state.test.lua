@@ -102,10 +102,11 @@ local servicename=randomstring(10)
 write_and_read({
       healthy = false,
       state = "bad",
+      ethelred = "unready",
       zombie = "brains"
 	       }, servicename)
-actual = write_and_read({ healthy = true }, servicename)
-
+actual = write_and_read({ healthy = true, ethelred = "unready" }, servicename)
+assert(actual:find("ethelred:1:unready"))
 assert(not actual:find("zombie:1:brains"))
 
 local servicename=randomstring(10)
@@ -115,5 +116,4 @@ write_and_read({
       zombie = { need = "brains" }
 	       }, servicename)
 actual = write_and_read({ healthy = true }, servicename)
-
 assert(not actual:find("zombie/need:1:brains"), actual)

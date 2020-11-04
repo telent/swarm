@@ -108,6 +108,7 @@ static int l_inotify_add_watch(lua_State *L) {
   const char* name  = lua_tostring(L, -1);
   watch_d = inotify_add_watch(fd, name,
 			      IN_CLOSE_WRITE |
+			      IN_CREATE |
 			      IN_DELETE |
 			      IN_DELETE_SELF |
 			      IN_MOVED_TO);
@@ -290,10 +291,12 @@ static int l_next_event(lua_State *L) {
       lua_settable(L, -3);
       lua_pushstring(L, "watches");
       lua_newtable(L);
-      for(int i=0; i < num/sizeof( struct inotify_event); i++) {
-	lua_pushinteger(L, ino_events[i].wd);
-	lua_pushinteger(L, ino_events[i].wd);
+      struct inotify_event *e = ino_events;
+      while(e < (struct ino_event *) ((char *) ino_events + num)) {
+	lua_pushinteger(L, e->wd);
+	lua_pushstring(L, e->name);
 	lua_settable(L, -3);
+	e = e + sizeof(struct inotify_event)+e->len;
       }
       lua_settable(L, -3);
       return 1;
@@ -330,6 +333,14 @@ static int l_next_event(lua_State *L) {
   }
 }
 
+static int l_handle_error(lua_State* L) {
+  const char * msg = lua_tostring(L, -1);
+  luaL_traceback(L, L, msg, 2);
+  lua_remove(L, -2); // Remove error/"msg" from stack.
+  return 1; // Traceback is returned.
+}
+
+
 
 int
 main(int argc, char *argv[])
@@ -347,6 +358,8 @@ main(int argc, char *argv[])
     luaL_openlibs(L); /* Load Lua libraries */
 
     l_errno_table(L);
+
+    lua_pushcfunction(L, l_handle_error);
     /* Load the file containing the script we are going to run */
     status = luaL_loadfile(L, argv[1]);
     if (status) {
@@ -378,7 +391,7 @@ main(int argc, char *argv[])
     lua_register(L, "waitpid", l_waitpid);
 
     /* Ask Lua to run our little script */
-    result = lua_pcall(L, 0, LUA_MULTRET, 0);
+    result = lua_pcall(L, 0, LUA_MULTRET, -2);
     if (result) {
         fprintf(stderr, "Failed to run script: %s\n", lua_tostring(L, -1));
         exit(1);

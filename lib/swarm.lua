@@ -62,20 +62,16 @@ function dirname(pathname)
    return pathname:match("(.*/)")
 end
 
-function changed(event, service, paths)
-   if event.changes and event.changes[service] then
-      local newer = event.changes[service].after
-      local older = event.changes[service].before
-      for _,path in ipairs(paths) do
-	 if not older then
-	    return true
-	 end
-	 if not (newer[path] == older[path]) then
-	    return true
-	 end
-      end
+function trimslash(pathname)
+   if pathname:sub(-1) == "/" then
+      return pathname:sub(1,-2)
+   else
+      return pathname
    end
-   return false
+end
+
+function parentdir(pathname)
+   return dirname(trimslash(pathname))
 end
 
 function rm_r(pathname)
@@ -92,14 +88,11 @@ end
 function write_state(service_name, state)
    local absdir = path_append(SERVICES_BASE_PATH, service_name)
    if not isdir(absdir) then mkdir(absdir) end
-   -- have not addressed: this needs to delete files that don't correspond to table keys,
-   -- otherwise it will leave stale data around. Also, need some way
-   -- to ensure that downstreams are not reading partly-written files
    if state.healthy then
       state.HEALTHY = slurp("/proc/uptime")
    end
    state.healthy = nil
-   local existing = dir(absdir) or {}
+   local existing = f.invert(dir(absdir)) or {}
    for key, value in pairs(state) do
       existing[key] = nil
       local relpath = path_append(service_name, key)
@@ -109,7 +102,7 @@ function write_state(service_name, state)
 	 spit(path_append(SERVICES_BASE_PATH,relpath), value)
       end
    end
-   for _, oldfile in ipairs(existing) do
+   for oldfile, _ in pairs(existing) do
       if not (oldfile == '.' or oldfile == '..') then
 	 rm_r(path_append(absdir, oldfile))
       end
@@ -185,28 +178,41 @@ function spawn(watcher, pathname, args, options)
    return or_fail(pid, failure)
 end
 
+NO_SERVICE = "...\0not a valid service name\0..."
+
 function events(me, timeout_ms)
    timeout_ms = timeout_ms or 30*1000
-   return function()
+   local do_next_event
+   do_next_event = function()
       local e = next_event(me.sigchld_fd, me.inotify_fd, me.child_fds, timeout_ms)
       if not e then return nil end
       if e.type == "file" then
-	 local changes = {}
-	 local values = {}
-	 for _,wd in pairs(e.watches) do
-	    local service_name = me.watches[wd].service
-	    if not changes[service_name] then
-	       values[service_name] = read_tree(service_name)
-	       changes[service_name] = {
-		  before = me.services[service_name],
-		  after = values[service_name]
-	       }
-	       me.services[service_name] = values[service_name]
+	 local need_reread = {}
+	 for wd,filename in pairs(e.watches) do
+	    local service = me.watches[wd]
+	    if service==NO_SERVICE then -- watch is on the root dir so
+	       service = filename	-- use the filename as service name
 	    end
+	    need_reread[service]=true
 	 end
-	 e.changed = changed
-	 e.changes =  changes
-	 e.values = values
+	 local changes = {}
+	 local filtered = true
+	 for service,_ in pairs(need_reread) do
+	    local state = read_tree(service)
+	    changes[service] = f.difftree(me.values[service] or {}, state)
+	    if f.find(function(k) return changes[service][k] end,
+            	      me.subscriptions[service]) then
+	       filtered = false
+	    end
+	    me.values[service] = state
+	    me:refresh_watches(service)
+	 end
+	 e.changes = changes
+	 if filtered then
+	    -- no files changed that we were subscribed to. we can
+	    -- skip this event, get the next one
+	    return do_next_event()
+	 end
       elseif e.type == "stream" then
 	 source = me.child_fds[e.fd]
 	 e.source = source
@@ -216,6 +222,7 @@ function events(me, timeout_ms)
       end
       return e
    end
+   return do_next_event
 end
 
 function new_watcher(config)
@@ -227,29 +234,42 @@ function new_watcher(config)
    return {
       sigchld_fd = or_fail(sigchld_fd()),
       inotify_fd = or_fail(inotify_init()),
-      watches = {},
-      services = {},
-      child_fds = {},
+      watches = {},		-- map of watch descriptor -> service name
+      values = {},		-- \/ subscriptions, servicename -> values
+      child_fds = {},		-- fd -> {pid, stream name}
       environ = config.environ,
       config = config,
+      subscriptions = {},	-- servicename -> array of watched filenames
       subscribe = function(me, service, files)
-	 base_path = path_append(SERVICES_BASE_PATH, service)
-	 me.services[service] = read_tree(service)
+	 me.subscriptions[service] =
+	    f.cat_tables(me.subscriptions[service] or {}, files)
+	 me:refresh_watches(service)
+      end,
+      refresh_watches = function(me, service)
+	 local base_path = path_append(SERVICES_BASE_PATH, service)
+	 local files = me.subscriptions[service]
 	 for _,file in ipairs(files) do
-	    me:watch_file(service, path_append(base_path, file))
+	    local dir = dirname(path_append(base_path, file))
+	    while dir > SERVICES_BASE_PATH and not isdir(dir) do
+	       dir = parentdir(dir)
+	    end
+	    if trimslash(dir) == trimslash(SERVICES_BASE_PATH) then
+	       service = NO_SERVICE
+	       me:watch_file(service, SERVICES_BASE_PATH)
+	    else
+	       me:watch_file(service, dir)
+	    end
+	 end
+	 if service ~= NO_SERVICE then
+	    me.values[service] = read_tree(service)
 	 end
       end,
       watch_file = function(me, service, file)
 	 wd, err = inotify_add_watch(me.inotify_fd, file)
 	 if wd then
-	    me.watches[wd] = { service = service, file = file };
-	 elseif errno[err] == "ENOENT" then
-	    -- XXX if we get a 'file created' event from the directory watch
-	    -- here, we need to add a watch for the file as well
-	    print(file .. " does not exist")
-	    me:watch_file(service, dirname(file))
+	    me.watches[wd] = service
 	 else
-	    error("watch_file: " .. err .. ", " .. (errno[err] or "(unknown)"))
+	    error("watch_file: " .. file .. ", "  .. err .. ", " .. (errno[err] or "(unknown)"))
 	 end
       end,
       watch_fd = function(me, fd, source)
