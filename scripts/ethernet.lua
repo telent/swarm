@@ -37,9 +37,17 @@ end
 function run(arguments)
    local name = arguments.name
    local iface = arguments.iface
-   print("service " .. name , "if " .. iface)
-
+   print("ethernet for ", service,  "iface", iface)
    local w = swarm.watcher(arguments)
+
+   for _, spec in pairs(arguments.addresses) do
+      if spec.family == "inet" then
+	 w:spawn(arguments.paths.ip,{
+		    "ip", "address", "add", spec.address,
+		    "dev", iface},
+		 { wait = true })
+      end
+   end
 
    -- XXX need arguments to tell us if we should be configring using dhcp6
    -- w:subscribe("dhcp6c", {"address", "routes", "netmask"})
