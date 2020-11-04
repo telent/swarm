@@ -78,6 +78,31 @@ assert(find_event(function (event)
 		w.values.service_not_started.key10 == "heart"
 		 end), "missing event")
 
+-----------------------
+-- given a service did not exist when I subscribed to it
+w = swarm.watcher({})
+w:subscribe("service_not_started_2", {"key10"})
+
+-- and that it was added
+swarm.write_state("service_not_started_2", {key10 = "heart"})
+
+-- I am notified for second and subsequent changes to state, not
+-- just the first
+
+assert(find_event(function (event)
+	     return event.changes["service_not_started_2"]["key10"] and
+		w.values.service_not_started_2.key10 == "heart"
+		 end), "missing event")
+
+swarm.write_state("service_not_started_2", {key10 = "club"})
+
+assert(find_event(function (event)
+	     return event.changes["service_not_started_2"]["key10"] and
+		w.values.service_not_started_2.key10 == "club"
+		 end), "missing event")
+
+
+
 
 -- given a service exists with some values
 -- and I have subscribed to one of them

@@ -205,10 +205,9 @@ function events(me, timeout_ms)
 	       filtered = false
 	    end
 	    me.values[service] = state
+	    me:refresh_watches(service)
 	 end
 	 e.changes = changes
-	 -- XXX this would be a good time to refresh inotify watches
-	 -- I don't have a failing test yet, but I know it's a bug we don't
 	 if filtered then
 	    -- no files changed that we were subscribed to. we can
 	    -- skip this event, get the next one
@@ -242,9 +241,13 @@ function new_watcher(config)
       config = config,
       subscriptions = {},	-- servicename -> array of watched filenames
       subscribe = function(me, service, files)
-	 base_path = path_append(SERVICES_BASE_PATH, service)
 	 me.subscriptions[service] =
 	    f.cat_tables(me.subscriptions[service] or {}, files)
+	 me:refresh_watches(service)
+      end,
+      refresh_watches = function(me, service)
+	 local base_path = path_append(SERVICES_BASE_PATH, service)
+	 local files = me.subscriptions[service]
 	 for _,file in ipairs(files) do
 	    local dir = dirname(path_append(base_path, file))
 	    while dir > SERVICES_BASE_PATH and not isdir(dir) do
