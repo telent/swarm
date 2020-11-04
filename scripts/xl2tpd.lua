@@ -39,7 +39,7 @@ function run(arguments)
       end
       for event in w:events() do
 	 if event:changed(transit_iface, "HEALTHY") then
-	    if event.values.eth0.HEALTHY then
+	    if w.values.eth0.HEALTHY then
 	       if state == "no-transit" then
 		  state = "no-daemon"
 		  break
