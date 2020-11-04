@@ -83,7 +83,7 @@ function run(arguments)
 	    warn "odhcp6c exited"
 	    state = "no-daemon"
 	 end
-	 if event.changed and event:changed("odhcp6c-script", {"environ"}) then
+	 if event:changed("odhcp6c-script", "environ") then
 	    local environ = event.values["odhcp6c-script"].environ
 	    if environ then
 	       options = parse_environ(environ)

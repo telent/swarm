@@ -47,7 +47,7 @@ function run(arguments)
    while true do
       swarm.write_state(name, get_state(w, iface))
       for event in w:events() do
-	 -- if event.changed and event:changed("dhcp6c", {"address", "netmask"}) then
+	 -- if event:changed("dhcp6c", "address") or  event:changed("dhcp6c", "netmask") then
 	 --    local dhcp6c = event.values.dhcp6c
 	 --    w:spawn(arguments.paths.ip,
 	 -- 	    {"ip", "address",
@@ -56,7 +56,7 @@ function run(arguments)
 	 -- 	    { wait = true })
 	 --    break
 	 -- end
-	 -- if event.changed and event:changed("dhcp6c", {"routes"}) then
+	 -- if event:changed("dhcp6c", "routes") then
 	 --    local dhcp6c = event.values.dhcp6c
 	 --    w:spawn(arguments.paths.ip,
 	 -- 	    {"ip", "route", "set", dhcp6c.routes, "something", "blah"},
