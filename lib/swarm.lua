@@ -180,6 +180,22 @@ end
 
 NO_SERVICE = "...\0not a valid service name\0..."
 
+function changed(event, key, ...)
+   function get(t, key, ...)
+      if ... then
+	 if t[key] then
+	    return get(t[key], ...)
+	 else
+	    return false
+	 end
+      else
+	 return t[key]
+      end
+   end
+   return event.changes and get(event.changes, key, ...)
+end
+
+
 function events(me, timeout_ms)
    timeout_ms = timeout_ms or 30*1000
    local do_next_event
@@ -220,6 +236,7 @@ function events(me, timeout_ms)
 	    me:watch_fd(e.fd, nil)
 	 end
       end
+      e.changed = changed
       return e
    end
    return do_next_event
@@ -290,5 +307,6 @@ return {
    -- exported for testing
    read_tree = read_tree,
    path_append = path_append,
-   SERVICES_BASE_PATH = SERVICES_BASE_PATH
+   SERVICES_BASE_PATH = SERVICES_BASE_PATH,
+   changed = changed
 }
