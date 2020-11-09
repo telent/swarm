@@ -303,6 +303,8 @@ return {
    -- completely and do everything from inside watcher
    watcher = new_watcher,
    write_state = write_state,
+   slurp = slurp,
+   spit = spit,
 
    -- exported for testing
    read_tree = read_tree,
