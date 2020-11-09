@@ -32,22 +32,22 @@ end
 
 function read_tree(tree, base_path)
    base_path = base_path or SERVICES_BASE_PATH
-   local out={}
-   function read_tree_aux(prefix, absolute_tree)
+   function read_tree_aux(absolute_tree)
+      local out={}
       for _,name in ipairs(dir(absolute_tree)) do
-	 local relname = prefix .. name
+	 local relname = name
 	 local absname = path_append(absolute_tree, name)
 	 if name:sub(1,1) == "." or name:sub(-1) == "#"  then
 	    -- skip
 	 elseif isdir(absname) then
-	    read_tree_aux(relname .. "/", absname)
+	    out[relname] = read_tree_aux(absname)
 	 else
 	    out[relname] = slurp(absname)
 	 end
       end
+      return out
    end
-   read_tree_aux("", path_append(base_path, tree))
-   return out
+   return read_tree_aux(path_append(base_path, tree))
 end
 
 function or_fail(value, failed)
