@@ -11,6 +11,18 @@ function find(f,collection)
    end
 end
 
+function get_in(t1, key1, ...)
+   if t1[key1] then
+      if ... then
+	 return get_in(t1[key1], ...)
+      else
+	 return t1[key1]
+      end
+   else
+      return nil
+   end
+end
+
 -- returns a nested table whose keys are the keys of `old` that have
 -- different values in `new` or vice versa. Include keys which are abent
 -- from one or other table
@@ -55,5 +67,15 @@ return {
       end
       return out
    end,
-   difftree = difftree
+   difftree = difftree,
+   split_string = function(pattern, s)
+      if s then
+	 local chunks = {}
+	 for substring in s:gmatch(pattern) do
+	    table.insert(chunks, substring)
+	 end
+	 return chunks
+      end
+   end,
+   get_in = get_in
 }

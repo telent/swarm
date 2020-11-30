@@ -214,14 +214,19 @@ function events(me, timeout_ms)
 	 local changes = {}
 	 local filtered = true
 	 for service,_ in pairs(need_reread) do
-	    local state = read_tree(service)
-	    changes[service] = f.difftree(me.values[service] or {}, state)
-	    if f.find(function(k) return changes[service][k] end,
-            	      me.subscriptions[service]) then
-	       filtered = false
+	    -- we may get inotified of a brand new service subdir even
+	    -- though we are not subscribed to it
+	    if me.subscriptions[service] then
+	       local state = read_tree(service)
+	       changes[service] = f.difftree(me.values[service] or {}, state)
+	       if changes[service] and
+		  f.find(function(k) return changes[service][k] end,
+		     me.subscriptions[service]) then
+		  filtered = false
+	       end
+	       me.values[service] = state
+	       me:refresh_watches(service)
 	    end
-	    me.values[service] = state
-	    me:refresh_watches(service)
 	 end
 	 e.changes = changes
 	 if filtered then

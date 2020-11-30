@@ -146,33 +146,4 @@ Probably it would be good to have a medical history so we don't get
 trapped in an infinite loop of trying the same thing over and over and
 it continuing to not work.
 
-## File watching
-
-File watching needs sorting out.  inotify won't let us watch files
-that don't exist. Once a watched file has been deleted, inotify won't
-notice when we recreate it.  This includes when it has been removed by
-renaming another file to clash with it. Tentative conclusion: put
-recursive directory watches on each subdir for the service of interest
-and make sure that we update them when subdirs are added/deleted. If
-the *service* doesn't exist (may happen e.g. at boot time) we need to
-watch the base dir until it does.
-
-[ in passing, we have a bug if a state value which was previously a
-simple file turns into a directory. we call `if not isdir(absdir) then
-mkdir(absdir) end` which will probably fail if absdir is a regular
-file ]
-
-I suspect that as all our updates are atomic replaces, watching
-individual files is rarely useful at all.
-
-w:subscribe("myservice", { "wet", "hdfdfh", "eth0/hello" })
-needs to add a watch for myservice and for myservice/eth0 and whenever
-it gets events on either
-1) remove any watches it gets IN_IGNORED events for
-2) look for IN_CREATE|IN_ISDIR, rescan the tree and add new watches for any
-subdirectories that aren't already watched
-3) filter the pathnames in the events and return only the pathnames of
-interest to the caller
-
-
-
+## 

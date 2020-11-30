@@ -28,3 +28,27 @@ local t1 = { a = 1, b= {z = 99}, c=2 }
 local t2 = { a = 1, b = {z = 99, q=2}, c=3 }
 actual = f.difftree(t1, t2)
 assert(i(actual) == i({c=true, b = {q=true}}), inspect(actual))
+
+local t1 = {
+   HEALTHY = "37.36 29.41\n",
+   dhcp6 = {
+      dns_servers = {
+	 ["1"] = "2001:8b0::2020",
+	 ["2"] = "2001:8b0::2021"
+      },
+      ia_na = {
+	 ["1"] = "2001:8b0:1111:1111:0:ffff:51bb:165b/128,3600,7200"
+      },
+      ia_pd = {
+	 ["1"] = "2001:8b0:de3a:40dc::/64,7200,7200"
+      },
+      ntp_server = {}
+
+   },
+   ra = {
+      routes = {}
+   }
+}
+
+assert(f.get_in(t1, "dhcp6", "ia_na", "1") == "2001:8b0:1111:1111:0:ffff:51bb:165b/128,3600,7200")
+assert(f.get_in(t1, "dhcp6", "ia_na", "17", "55") == nil)
